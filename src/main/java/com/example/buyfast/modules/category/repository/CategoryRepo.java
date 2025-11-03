@@ -10,11 +10,9 @@ public interface CategoryRepo {
 
     /**
      * Inserts a new main category.
-     * The useGeneratedKeys=true and keyProperty="id" will automatically
-     * populate the 'id' field of the passed MainCategory object.
      */
     @Insert("INSERT INTO main_category (main_category_uuid, main_category_name, description, icon_url, status) " +
-            "VALUES (#{mainCategoryUuid}, #{mainCategoryName}, #{description}, #{iconUrl}, 'active')")
+            "VALUES (#{mainCategoryUuid, jdbcType=OTHER}, #{mainCategoryName}, #{description}, #{iconUrl}, 'active')")
     @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
     void insertMainCategory(MainCategory mainCategory);
 
@@ -22,15 +20,14 @@ public interface CategoryRepo {
      * Finds the internal ID (BIGSERIAL) of a main category
      * using its external UUID.
      */
-    @Select("SELECT id FROM main_category WHERE main_category_uuid = #{mainCategoryUuid}")
+    @Select("SELECT id FROM main_category WHERE main_category_uuid = #{mainCategoryUuid, jdbcType=OTHER}")
     Long findMainCategoryIdByUuid(UUID mainCategoryUuid);
 
     /**
      * Inserts a new sub-category.
-     * This also populates the 'id' field of the Category object.
      */
     @Insert("INSERT INTO category (category_uuid, category_name, description, icon_url, main_category_id, level) " +
-            "VALUES (#{categoryUuid}, #{categoryName}, #{description}, #{iconUrl}, #{mainCategoryId}, 2)")
+            "VALUES (#{categoryUuid, jdbcType=OTHER}, #{categoryName}, #{description}, #{iconUrl}, #{mainCategoryId}, 2)")
     @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
     void insertCategory(Category category);
 
