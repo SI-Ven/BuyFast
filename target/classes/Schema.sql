@@ -374,6 +374,7 @@ CREATE TABLE users (
                        CONSTRAINT fk_user_company FOREIGN KEY (company_id) REFERENCES company(id)
                            ON DELETE SET NULL
 );
+drop table users cascade ;
 
 -- Add the foreign key from company to users (after users table is created)
 ALTER TABLE company ADD CONSTRAINT fk_company_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;

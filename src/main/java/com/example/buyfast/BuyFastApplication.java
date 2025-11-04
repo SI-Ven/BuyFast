@@ -5,7 +5,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-@MapperScan("com.example.buyfast.modules") // <-- ADD THIS LINE
+@MapperScan("com.example.buyfast.modules.category.repository")
 public class BuyFastApplication {
 
     public static void main(String[] args) {

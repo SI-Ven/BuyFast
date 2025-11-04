@@ -360,10 +360,22 @@ CREATE TABLE company (
 -- =======================================================
 -- 4️⃣ USERS TABLE
 -- =======================================================
+-- =======================================================
+-- 4️⃣ USERS TABLE (Updated with Profile Fields)
+-- =======================================================
 CREATE TABLE users (
                        id BIGSERIAL PRIMARY KEY, -- Internal ID
                        user_uuid UUID NOT NULL UNIQUE, -- External ID
-                       user_name VARCHAR(255),
+
+    -- Profile fields
+                       first_name VARCHAR(100),
+                       last_name VARCHAR(100),
+                       user_name VARCHAR(100),
+                       user_profile VARCHAR(255),
+                       dob DATE,
+                       address TEXT,
+
+    -- Auth fields
                        email VARCHAR(255) UNIQUE NOT NULL,
                        user_password TEXT NOT NULL,
                        role VARCHAR(50) NOT NULL DEFAULT 'buyer',  -- 'admin_platform', 'admin_company', 'seller_company', 'buyer'
@@ -374,6 +386,7 @@ CREATE TABLE users (
                        CONSTRAINT fk_user_company FOREIGN KEY (company_id) REFERENCES company(id)
                            ON DELETE SET NULL
 );
+drop table users cascade ;
 
 -- Add the foreign key from company to users (after users table is created)
 ALTER TABLE company ADD CONSTRAINT fk_company_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
