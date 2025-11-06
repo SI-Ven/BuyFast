@@ -3,14 +3,15 @@ package com.example.buyfast.modules.user.repository;
 import com.example.buyfast.modules.user.model.User;
 import org.apache.ibatis.annotations.*;
 
+import java.util.List; // <-- NEW IMPORT
 import java.util.Optional;
 import java.util.UUID;
 
 @Mapper
 public interface UserRepo {
 
-    @Insert("INSERT INTO users (user_uuid, first_name, last_name,user_name, email, user_password, role, status, created_at) " +
-            "VALUES (#{userUuid}, #{firstName}, #{lastName},#{userName}, #{email}, #{userPassword}, #{role}, #{status}, CURRENT_TIMESTAMP)")
+    @Insert("INSERT INTO users (user_uuid, first_name, last_name,user_name, email, user_password, role, status, created_at, company_id) " +
+            "VALUES (#{userUuid}, #{firstName}, #{lastName},#{userName}, #{email}, #{userPassword}, #{role}, #{status}, CURRENT_TIMESTAMP, #{companyId})")
     @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
     void save(User user);
 
@@ -50,4 +51,21 @@ public interface UserRepo {
     // --- NEW METHOD ---
     @Update("UPDATE users SET verified = #{isVerified} WHERE id = #{id}")
     void setVerifiedStatus(@Param("id") Long id, @Param("isVerified") boolean isVerified);
+
+    // --- NEW METHODS FOR COMPANY ADMIN ---
+
+    @Update("UPDATE users SET role = #{role}, company_id = #{companyId} WHERE id = #{userId}")
+    void updateUserRoleAndCompany(@Param("userId") Long userId, @Param("role") String role, @Param("companyId") Long companyId);
+
+    @Select("SELECT COUNT(*) FROM users WHERE company_id = #{companyId} AND role = 'seller_company'")
+    int countSellersByCompanyId(Long companyId);
+
+    @Select("SELECT * FROM users WHERE company_id = #{companyId} AND role = 'seller_company'")
+    List<User> findSellersByCompanyId(Long companyId);
+
+    @Delete("DELETE FROM users WHERE id = #{userId}")
+    void deleteById(Long userId);
+
+    @Update("UPDATE users SET first_name = #{firstName}, last_name = #{lastName}, status = #{status} WHERE id = #{id}")
+    void updateSellerProfile(@Param("id") Long id, @Param("firstName") String firstName, @Param("lastName") String lastName, @Param("status") String status);
 }

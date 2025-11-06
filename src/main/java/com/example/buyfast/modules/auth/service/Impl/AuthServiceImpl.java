@@ -28,7 +28,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final OtpService otpService;
 
-    // ... [register, login, verifyOtp, requestPasswordReset methods are correct] ...
+    // ... [login, verifyOtp, requestPasswordReset methods are correct] ...
 
     @Override
     @Transactional
@@ -46,6 +46,7 @@ public class AuthServiceImpl implements AuthService {
         user.setUserPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole("buyer"); // Default role
         user.setStatus("pending"); // Await OTP verification
+        user.setCompanyId(null); // <-- NEWLY ADDED to match the save() method
 
         userRepo.save(user); // This transaction will now commit
         otpService.sendOtp(user.getEmail()); // This will save the OTP

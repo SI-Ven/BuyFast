@@ -44,9 +44,20 @@ public class SecurityConfig {
                                 "/swagger-ui/**")
                         .permitAll()
 
-                        // Allow only admins to approve/reject
+                        // Allow only PLATFORM admins to approve/reject
+                        // Company admins should NOT be able to approve/reject user verification
                         .requestMatchers(HttpMethod.POST, "/api/v1/verify/approve/**", "/api/v1/verify/reject/**")
-                        .hasAnyAuthority("admin_platform", "admin_company")
+                        .hasAuthority("admin_platform") // <-- CHANGED from hasAnyAuthority
+
+                        // --- NEW RULES for Company Admin ---
+                        // Allow any authenticated user to create a company (their role will be upgraded)
+                        .requestMatchers(HttpMethod.POST, "/api/v1/company")
+                        .authenticated() // Any logged-in user can create one
+
+                        // Protect the company admin dashboard
+                        .requestMatchers("/api/v1/company-admin/**")
+                        .hasAuthority("admin_company")
+                        // --- END NEW RULES ---
 
                         // All other requests must be authenticated
                         .anyRequest()

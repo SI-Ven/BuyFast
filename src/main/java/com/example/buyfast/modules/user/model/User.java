@@ -29,6 +29,7 @@ public class User implements UserDetails {
     private boolean phoneVerified;
     private boolean verified;
     private String role;
+    private Long companyId; // <-- THIS IS THE NEW FIELD THAT WAS MISSING
     private String status; // 'pending', 'active', 'banned', etc.
     private LocalDateTime createdAt;
     private LocalDateTime lastLogin;

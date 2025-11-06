@@ -27,7 +27,8 @@ import org.springframework.context.annotation.Configuration;
         "com.example.buyfast.modules.category.repository",
         "com.example.buyfast.modules.user.repository",
         "com.example.buyfast.modules.otp.repository",
-        "com.example.buyfast.modules.verify.repository"
+        "com.example.buyfast.modules.verify.repository",
+        "com.example.buyfast.modules.company.repository" // <-- NEW REPO ADDED
 })
 public class BuyFastApplication {
 

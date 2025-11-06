@@ -453,7 +453,7 @@ CREATE TABLE verify (
                         CONSTRAINT fk_verify_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id)
 );
 drop table verify cascade ;
-
+truncate table users restart identity cascade ;
 -- =======================================================
 -- 8️⃣ SHIPPING ADDRESS TABLE
 -- =======================================================
