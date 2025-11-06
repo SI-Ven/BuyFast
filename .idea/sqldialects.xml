@@ -2,6 +2,7 @@
 <project version="4">
   <component name="SqlDialectMappings">
     <file url="file://$PROJECT_DIR$/src/main/java/com/example/buyfast/modules/category/repository/CategoryRepo.java" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/src/main/java/com/example/buyfast/modules/user/repository/UserRepo.java" dialect="GenericSQL" />
     <file url="file://$PROJECT_DIR$/src/main/resources/Schema.sql" dialect="PostgreSQL" />
   </component>
 </project>

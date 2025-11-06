@@ -25,6 +25,9 @@ public class User implements UserDetails {
     private String address;
     private String email;
     private String userPassword; // This is the hashed password
+    private String phoneNumber;
+    private boolean phoneVerified;
+    private boolean verified;
     private String role;
     private String status; // 'pending', 'active', 'banned', etc.
     private LocalDateTime createdAt;

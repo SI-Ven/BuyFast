@@ -383,6 +383,13 @@ CREATE TABLE users (
                        status VARCHAR(20) NOT NULL DEFAULT 'active',
                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                        last_login TIMESTAMP,
+
+    -- --- NEW FIELDS ---
+                       phone_number VARCHAR(20) UNIQUE, -- Added for phone number
+                       phone_verified BOOLEAN DEFAULT FALSE, -- Added for phone verification
+                       verified BOOLEAN DEFAULT FALSE, -- Added for ID card verification
+    -- --- END NEW FIELDS ---
+
                        CONSTRAINT fk_user_company FOREIGN KEY (company_id) REFERENCES company(id)
                            ON DELETE SET NULL
 );
@@ -436,8 +443,8 @@ CREATE TABLE verify (
                         target_type VARCHAR(50) NOT NULL, -- 'user', 'company', 'product'
                         target_id UUID NOT NULL, -- Polymorphic key, stores the external UUID of the target
                         submitted_by BIGINT NOT NULL, -- FK uses internal users(id)
-                        verify_documents JSONB,
-                        status VARCHAR(20) NOT NULL DEFAULT 'pending', -- 'pending', 'approved', 'rejected', 'expired'
+                        verify_documents JSONB, -- We will store the ID card URL here
+                        status VARCHAR(20) NOT NULL DEFAULT 'pending', -- 'pending', 'approved', 'rejected'
                         reviewed_by BIGINT, -- FK uses internal users(id)
                         reviewed_at TIMESTAMP,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -445,6 +452,7 @@ CREATE TABLE verify (
                         CONSTRAINT fk_verify_submitter FOREIGN KEY (submitted_by) REFERENCES users(id),
                         CONSTRAINT fk_verify_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id)
 );
+drop table verify cascade ;
 
 -- =======================================================
 -- 8️⃣ SHIPPING ADDRESS TABLE
@@ -544,6 +552,12 @@ CREATE TABLE otp_number (
                             email VARCHAR(255) NOT NULL UNIQUE, -- Ensures one active OTP per email
                             otp_code VARCHAR(10) NOT NULL,
                             expires_at TIMESTAMP NOT NULL
+);
+CREATE TABLE sms_otp (
+                         id BIGSERIAL PRIMARY KEY,
+                         phone_number VARCHAR(255) NOT NULL UNIQUE,
+                         otp_code VARCHAR(10) NOT NULL,
+                         expires_at TIMESTAMP NOT NULL
 );
 
 -- =======================================================

@@ -32,13 +32,25 @@ public class OtpServiceImpl implements OtpService { // <-- Implements interface
         otp.setOtpCode(otpCode);
         otp.setExpiresAt(LocalDateTime.now().plusMinutes(5));
 
+        // This will now be saved and committed
         otpRepo.save(otp);
 
         String subject = "Your BuyFast Verification Code";
         String body = "Your verification code is: " + otpCode + "\n" +
                 "It will expire in 5 minutes.";
 
-        emailService.sendSimpleMessage(email, subject, body);
+        // --- START OF FIX ---
+        try {
+            // Attempt to send the email
+            emailService.sendSimpleMessage(email, subject, body);
+        } catch (Exception e) {
+            // If email fails, print the error but DO NOT throw the exception.
+            // This allows the @Transactional method to commit the database changes.
+            System.err.println("Failed to send OTP email to " + email + ": " + e.getMessage());
+            // In a real application, you would add proper logging here
+            // e.g., log.error("Failed to send OTP email", e);
+        }
+        // --- END OF FIX ---
     }
 
     @Override // <-- Add annotation
@@ -53,9 +65,12 @@ public class OtpServiceImpl implements OtpService { // <-- Implements interface
         Otp otp = otpOpt.get();
 
         if (otp.getExpiresAt().isBefore(LocalDateTime.now())) {
+            // OTP is expired, delete it
+            otpRepo.deleteByEmail(email);
             return false;
         }
 
+        // OTP is valid, delete it so it can't be used again
         otpRepo.deleteByEmail(email);
         return true;
     }

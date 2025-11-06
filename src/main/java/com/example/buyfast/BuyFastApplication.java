@@ -26,7 +26,8 @@ import org.springframework.context.annotation.Configuration;
 @MapperScan({
         "com.example.buyfast.modules.category.repository",
         "com.example.buyfast.modules.user.repository",
-        "com.example.buyfast.modules.otp.repository"
+        "com.example.buyfast.modules.otp.repository",
+        "com.example.buyfast.modules.verify.repository"
 })
 public class BuyFastApplication {
 

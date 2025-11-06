@@ -4,6 +4,7 @@ import com.example.buyfast.modules.user.model.User;
 import org.apache.ibatis.annotations.*;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Mapper
 public interface UserRepo {
@@ -21,7 +22,30 @@ public interface UserRepo {
 
     @Update("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = #{id}")
     void updateLastLogin(Long id);
+    @Select("SELECT * FROM users WHERE user_uuid = #{uuid}")
+    Optional<User> findByUuid(UUID uuid);
 
     @Update("UPDATE users SET user_password = #{newPassword} WHERE email = #{email}")
     void updatePassword(String email, String newPassword);
+    @Update("UPDATE users SET " +
+            "first_name = #{firstName}, " +
+            "last_name = #{lastName}, " +
+            "user_name = #{userName}, " +
+            "user_profile=#{userProfile}"+
+            "dob = #{dob}, " +
+            "address = #{address} " +
+            "phone_number = #{phoneNumber} " +
+            "WHERE id = #{id}")
+    void updateProfile(User user);
+
+    // --- NEW METHOD FOR ROLE UPDATE ---
+    @Update("UPDATE users SET role = #{role} WHERE id = #{id}")
+    void updateUserRole(@Param("id") Long id, @Param("role") String role);
+
+    @Update("UPDATE users SET phone_verified = true WHERE id = #{id}")
+    void setPhoneVerified(Long id);
+
+    // --- NEW METHOD ---
+    @Update("UPDATE users SET verified = #{isVerified} WHERE id = #{id}")
+    void setVerifiedStatus(@Param("id") Long id, @Param("isVerified") boolean isVerified);
 }

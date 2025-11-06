@@ -4,10 +4,12 @@ import com.example.buyfast.modules.user.repository.UserRepo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod; // <-- NEW IMPORT
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity; // <-- NEW IMPORT
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -19,6 +21,7 @@ import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity // <-- NEW ANNOTATION (Enables @PreAuthorize)
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -27,40 +30,41 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(AbstractHttpConfigurer::disable) // Disable CSRF
+                .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        // Allow all requests to auth endpoints, swagger, and api-docs
+                        // Allow all public endpoints
                         .requestMatchers("/api/v1/auth/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**")
                         .permitAll()
-                        // All other requests must be authenticated (you'll need a JWT filter for this later)
+
+                        // --- NEW RULES ---
+                        // Allow only admins to approve/reject
+                        .requestMatchers(HttpMethod.POST, "/api/v1/verify/approve/**", "/api/v1/verify/reject/**")
+                        .hasAnyAuthority("admin_platform", "admin_company")
+
+                        // All other requests must be authenticated
                         .anyRequest()
                         .authenticated()
                 )
-        // We are not adding the JWT filter yet, but this is where it would go
-        // .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        // .authenticationProvider(authenticationProvider())
-        // .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+        // ... [rest of your config] ...
         ;
 
         return http.build();
     }
 
-    // This bean is required by AuthenticationManager
+    // [ ... all other beans (userDetailsService, passwordEncoder, etc.) are unchanged ... ]
     @Bean
     public UserDetailsService userDetailsService() {
         return username -> userRepo.findByEmail(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + username));
     }
 
-    // This bean provides the PasswordEncoder
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    // This bean binds the UserDetailsService and PasswordEncoder
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
@@ -69,7 +73,6 @@ public class SecurityConfig {
         return authProvider;
     }
 
-    // This bean is required by AuthServiceImpl
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();

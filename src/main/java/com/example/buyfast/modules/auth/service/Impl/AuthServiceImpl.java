@@ -42,14 +42,14 @@ public class AuthServiceImpl implements AuthService {
         user.setUserUuid(uuidService.generateUuid());
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
-        user.setUserName(request.getFirstName()+request.getLastName());
+        user.setUserName(request.getFirstName() + request.getLastName()); // From your file
         user.setEmail(request.getEmail());
         user.setUserPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole("buyer"); // Default role
         user.setStatus("pending"); // Await OTP verification
 
-        userRepo.save(user);
-        otpService.sendOtp(user.getEmail());
+        userRepo.save(user); // This transaction will now commit
+        otpService.sendOtp(user.getEmail()); // This will save the OTP
     }
 
     @Override
