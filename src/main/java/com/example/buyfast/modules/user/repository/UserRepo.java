@@ -27,13 +27,15 @@ public interface UserRepo {
 
     @Update("UPDATE users SET user_password = #{newPassword} WHERE email = #{email}")
     void updatePassword(String email, String newPassword);
+
+    // --- THIS METHOD IS NOW FIXED (Commas were missing) ---
     @Update("UPDATE users SET " +
             "first_name = #{firstName}, " +
             "last_name = #{lastName}, " +
             "user_name = #{userName}, " +
-            "user_profile=#{userProfile}"+
+            "user_profile = #{userProfile}, " + // <-- FIXED
             "dob = #{dob}, " +
-            "address = #{address} " +
+            "address = #{address}, " + // <-- FIXED
             "phone_number = #{phoneNumber} " +
             "WHERE id = #{id}")
     void updateProfile(User user);

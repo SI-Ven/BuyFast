@@ -4,10 +4,12 @@ import com.example.buyfast.modules.verify.dto.VerificationRequest;
 import com.example.buyfast.modules.verify.service.VerifyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 import java.util.UUID;
@@ -22,13 +24,12 @@ public class VerifyController {
     /**
      * Endpoint for a user to submit their ID card for verification.
      */
-    @PostMapping("/request-user")
-
+    @PostMapping(value = "/request-user", consumes = MediaType.MULTIPART_FORM_DATA_VALUE) // <-- MODIFIED
     public ResponseEntity<Map<String, String>> requestUserVerification(
-            @Valid @RequestBody VerificationRequest request,
+            @RequestPart("file") MultipartFile file, // <-- MODIFIED
             @AuthenticationPrincipal UserDetails userDetails) {
 
-        verifyService.requestUserVerification(request, userDetails);
+        verifyService.requestUserVerification(file, userDetails); // <-- MODIFIED
         return ResponseEntity.ok(Map.of("message", "Verification request submitted successfully."));
     }
 

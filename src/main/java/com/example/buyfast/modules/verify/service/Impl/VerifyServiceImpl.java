@@ -1,8 +1,9 @@
 package com.example.buyfast.modules.verify.service.Impl;
 
+import com.example.buyfast.modules.storage.service.StorageService; // <-- NEW IMPORT
 import com.example.buyfast.modules.user.model.User;
 import com.example.buyfast.modules.user.repository.UserRepo;
-import com.example.buyfast.modules.verify.dto.VerificationRequest;
+// No longer needs VerificationRequest
 import com.example.buyfast.modules.verify.model.Verify;
 import com.example.buyfast.modules.verify.repository.VerifyRepo;
 import com.example.buyfast.modules.verify.service.VerifyService;
@@ -11,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile; // <-- NEW IMPORT
 
 import java.util.UUID;
 
@@ -21,14 +23,18 @@ public class VerifyServiceImpl implements VerifyService {
     private final VerifyRepo verifyRepo;
     private final UserRepo userRepo;
     private final UuidService uuidService;
+    private final StorageService storageService; // <-- NEW INJECTION
 
-    @Override
+    @Override // <-- This now correctly overrides the interface
     @Transactional
-    public void requestUserVerification(VerificationRequest request, UserDetails userDetails) {
+    public void requestUserVerification(MultipartFile file, UserDetails userDetails) {
         User currentUser = (User) userDetails;
 
-        // Simple JSON string to store the document URL
-        String documentsJson = "{\"id_card_url\": \"" + request.getIdCardUrl() + "\"}";
+        // 1. Upload the file (this now calls PinataStorageServiceImpl)
+        String fileUrl = storageService.uploadFile(file);
+
+        // 2. Simple JSON string to store the document URL
+        String documentsJson = "{\"id_card_url\": \"" + fileUrl + "\"}";
 
         Verify verification = new Verify();
         verification.setVerifyUuid(uuidService.generateUuid());
@@ -46,12 +52,10 @@ public class VerifyServiceImpl implements VerifyService {
         User adminUser = (User) adminDetails;
         Verify verification = findVerification(verifyUuid);
 
-        // Set user's 'verified' status to true
         User targetUser = userRepo.findByUuid(verification.getTargetId())
                 .orElseThrow(() -> new IllegalStateException("Target user not found."));
         userRepo.setVerifiedStatus(targetUser.getId(), true);
 
-        // Update verification record
         verification.setStatus("approved");
         verification.setRemarks(remarks);
         verification.setReviewedBy(adminUser.getId());
@@ -64,12 +68,10 @@ public class VerifyServiceImpl implements VerifyService {
         User adminUser = (User) adminDetails;
         Verify verification = findVerification(verifyUuid);
 
-        // Set user's 'verified' status to false
         User targetUser = userRepo.findByUuid(verification.getTargetId())
                 .orElseThrow(() -> new IllegalStateException("Target user not found."));
         userRepo.setVerifiedStatus(targetUser.getId(), false);
 
-        // Update verification record
         verification.setStatus("rejected");
         verification.setRemarks(remarks);
         verification.setReviewedBy(adminUser.getId());
