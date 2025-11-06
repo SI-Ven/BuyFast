@@ -1,14 +1,14 @@
 package com.example.buyfast.modules.auth.controller;
 
-import com.example.buyfast.modules.auth.dto.*; // Import new DTOs
+import com.example.buyfast.modules.auth.dto.*;
 import com.example.buyfast.modules.auth.service.AuthService;
-import com.example.buyfast.modules.otp.service.OtpService; // Import OTP service
+import com.example.buyfast.modules.otp.service.OtpService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.DisabledException;
-import org.springframework.web.bind.annotation.*; // Import ExceptionHandler
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
@@ -18,7 +18,7 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
-    private final OtpService otpService; // <-- Inject OTP service
+    private final OtpService otpService;
 
     @PostMapping("/register")
     public ResponseEntity<Map<String, String>> register(
@@ -51,10 +51,27 @@ public class AuthController {
         return ResponseEntity.ok(authService.login(request));
     }
 
-    /**
-     * Handles the case where a user tries to log in
-     * but their account is not enabled (status='pending').
-     */
+    // --- NEW ENDPOINTS ---
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, String>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request
+    ) {
+        authService.requestPasswordReset(request);
+        return ResponseEntity.ok(Map.of("message", "If an active account exists for this email, an OTP has been sent."));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, String>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request
+    ) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok(Map.of("message", "Password has been reset successfully. You can now login."));
+    }
+
+
+    // --- EXCEPTION HANDLERS (Unchanged) ---
+
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<Map<String, String>> handleDisabledException(DisabledException ex) {
         return ResponseEntity
@@ -62,9 +79,6 @@ public class AuthController {
                 .body(Map.of("error", "Account is not verified. Please check your email for the OTP."));
     }
 
-    /**
-     * Handles bad OTPs or other registration/verification errors.
-     */
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Map<String, String>> handleIllegalStateException(IllegalStateException ex) {
         return ResponseEntity

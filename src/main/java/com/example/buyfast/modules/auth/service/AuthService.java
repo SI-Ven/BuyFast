@@ -1,9 +1,6 @@
 package com.example.buyfast.modules.auth.service;
 
-import com.example.buyfast.modules.auth.dto.AuthResponse;
-import com.example.buyfast.modules.auth.dto.LoginRequest;
-import com.example.buyfast.modules.auth.dto.OtpRequest;
-import com.example.buyfast.modules.auth.dto.RegisterRequest;
+import com.example.buyfast.modules.auth.dto.*;
 
 public interface AuthService {
     /**
@@ -20,4 +17,14 @@ public interface AuthService {
      * Verifies an OTP, activates the user, and returns a login token.
      */
     AuthResponse verifyOtp(OtpRequest request);
+
+    /**
+     * Triggers an OTP send for an existing, active user.
+     */
+    void requestPasswordReset(ForgotPasswordRequest request);
+
+    /**
+     * Verifies the OTP and updates the user's password.
+     */
+    void resetPassword(ResetPasswordRequest request);
 }
