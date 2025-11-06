@@ -360,10 +360,22 @@ CREATE TABLE company (
 -- =======================================================
 -- 4️⃣ USERS TABLE
 -- =======================================================
+-- =======================================================
+-- 4️⃣ USERS TABLE (Updated with Profile Fields)
+-- =======================================================
 CREATE TABLE users (
                        id BIGSERIAL PRIMARY KEY, -- Internal ID
                        user_uuid UUID NOT NULL UNIQUE, -- External ID
-                       user_name VARCHAR(255),
+
+    -- Profile fields
+                       first_name VARCHAR(100),
+                       last_name VARCHAR(100),
+                       user_name VARCHAR(100),
+                       user_profile VARCHAR(255),
+                       dob DATE,
+                       address TEXT,
+
+    -- Auth fields
                        email VARCHAR(255) UNIQUE NOT NULL,
                        user_password TEXT NOT NULL,
                        role VARCHAR(50) NOT NULL DEFAULT 'buyer',  -- 'admin_platform', 'admin_company', 'seller_company', 'buyer'
@@ -527,7 +539,12 @@ CREATE TABLE notification (
                               link_url VARCHAR(512),
                               CONSTRAINT fk_notification_user FOREIGN KEY (user_id) REFERENCES users(id)
 );
-
+CREATE TABLE otp_number (
+                            id BIGSERIAL PRIMARY KEY,
+                            email VARCHAR(255) NOT NULL UNIQUE, -- Ensures one active OTP per email
+                            otp_code VARCHAR(10) NOT NULL,
+                            expires_at TIMESTAMP NOT NULL
+);
 
 -- =======================================================
 -- DATA INSERTION (Requires main_category data to exist first)

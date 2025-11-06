@@ -539,7 +539,12 @@ CREATE TABLE notification (
                               link_url VARCHAR(512),
                               CONSTRAINT fk_notification_user FOREIGN KEY (user_id) REFERENCES users(id)
 );
-
+CREATE TABLE otp_number (
+                            id BIGSERIAL PRIMARY KEY,
+                            email VARCHAR(255) NOT NULL UNIQUE, -- Ensures one active OTP per email
+                            otp_code VARCHAR(10) NOT NULL,
+                            expires_at TIMESTAMP NOT NULL
+);
 
 -- =======================================================
 -- DATA INSERTION (Requires main_category data to exist first)
