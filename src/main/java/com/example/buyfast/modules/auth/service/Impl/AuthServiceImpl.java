@@ -1,6 +1,5 @@
 package com.example.buyfast.modules.auth.service.Impl;
 
-// --- FIX: Add all these missing imports ---
 import com.example.buyfast.config.JwtService;
 import com.example.buyfast.modules.auth.dto.*;
 import com.example.buyfast.modules.auth.service.AuthService;
@@ -13,8 +12,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
-// --- End of new imports ---
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +27,8 @@ public class AuthServiceImpl implements AuthService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final OtpService otpService;
+
+    // ... [register, login, verifyOtp, requestPasswordReset methods are correct] ...
 
     @Override
     @Transactional
@@ -55,7 +54,6 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        // This will throw an exception if auth fails (bad credentials or user disabled)
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),
@@ -63,7 +61,6 @@ public class AuthServiceImpl implements AuthService {
                 )
         );
 
-        // If auth succeeds, fetch the user
         User user = userRepo.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalStateException("User not found after successful auth."));
 
@@ -80,31 +77,24 @@ public class AuthServiceImpl implements AuthService {
         if (!isValid) {
             throw new IllegalStateException("Invalid or expired OTP");
         }
-
-        // Activate the user
         userRepo.updateUserStatus(request.getEmail(), "active");
-
-        // Return a simple string message instead of a token
         return ResponseEntity.ok("Otp verified successfully");
     }
 
     @Override
     @Transactional
     public void requestPasswordReset(ForgotPasswordRequest request) {
-        // Find the user
         Optional<User> userOpt = userRepo.findByEmail(request.getEmail());
 
-        // Only send OTP if the user exists and is 'active'
         if (userOpt.isPresent() && "active".equals(userOpt.get().getStatus())) {
             otpService.sendOtp(request.getEmail());
         } else if (userOpt.isEmpty()) {
-            // Fail silently or throw to avoid revealing if an email is registered
             throw new IllegalStateException("User not found.");
         } else {
-            // User is 'pending' or 'banned'
             throw new IllegalStateException("Account is not active.");
         }
     }
+
 
     @Override
     @Transactional
@@ -114,10 +104,17 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalStateException("Passwords do not match.");
         }
 
+        // --- THIS STEP WAS MISSING ---
+        // 2. Verify the OTP
+        boolean isValid = otpService.verifyOtp(request.getEmail(), request.getOtpCode());
+        if (!isValid) {
+            throw new IllegalStateException("Invalid or expired OTP.");
+        }
+        // --- END OF FIX ---
 
         // 3. OTP is valid, find user (we know they exist)
         User user = userRepo.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalStateException("User not found.")); // Should not happen
+                .orElseThrow(() -> new IllegalStateException("User not found."));
 
         // 4. Encode and update the new password
         String encodedPassword = passwordEncoder.encode(request.getNewPassword());

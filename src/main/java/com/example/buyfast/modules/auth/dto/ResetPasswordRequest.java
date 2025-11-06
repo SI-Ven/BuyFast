@@ -12,6 +12,11 @@ public class ResetPasswordRequest {
     @Email
     private String email;
 
+    // --- THIS FIELD WAS MISSING ---
+    @NotBlank(message = "OTP code is required")
+    @Size(min = 6, max = 6, message = "OTP must be 6 digits")
+    private String otpCode;
+    // --- END OF FIX ---
 
     @NotBlank(message = "New password is required")
     @Size(min = 8, message = "Password must be at least 8 characters")

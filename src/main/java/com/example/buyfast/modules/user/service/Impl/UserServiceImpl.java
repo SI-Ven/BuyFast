@@ -1,6 +1,6 @@
 package com.example.buyfast.modules.user.service.Impl;
 
-import com.example.buyfast.modules.otp.service.SmsOtpService; // <-- NEW IMPORT
+import com.example.buyfast.modules.otp.service.SmsOtpService;
 import com.example.buyfast.modules.user.dto.UpdateProfileRequest;
 import com.example.buyfast.modules.user.model.User;
 import com.example.buyfast.modules.user.repository.UserRepo;
@@ -15,16 +15,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserServiceImpl implements UserService {
 
     private final UserRepo userRepo;
-    private final SmsOtpService smsOtpService; // <-- NEW INJECTION
+    private final SmsOtpService smsOtpService;
 
     @Override
     @Transactional
     public void updateUserProfile(UpdateProfileRequest request, UserDetails userDetails) {
         User currentUser = (User) userDetails;
 
-        // Check if phone number is being changed
         if (request.getPhoneNumber() != null && !request.getPhoneNumber().equals(currentUser.getPhoneNumber())) {
-            // If phone changed, mark it as unverified
             currentUser.setPhoneVerified(false);
             currentUser.setPhoneNumber(request.getPhoneNumber());
         }
@@ -35,10 +33,15 @@ public class UserServiceImpl implements UserService {
         currentUser.setDob(request.getDob());
         currentUser.setAddress(request.getAddress());
 
+        // --- THIS LINE WAS MISSING ---
+        currentUser.setUserProfile(request.getUserProfile());
+        // --- END OF FIX ---
+
         userRepo.updateProfile(currentUser);
     }
 
-    // ... [becomeSeller method remains the same] ...
+    // ... [becomeSeller, sendPhoneVerificationOtp, verifyPhone methods are correct] ...
+
     @Override
     @Transactional
     public void becomeSeller(UserDetails userDetails) {
@@ -51,11 +54,6 @@ public class UserServiceImpl implements UserService {
         userRepo.updateUserRole(currentUser.getId(), "seller");
     }
 
-    // --- NEW METHODS FOR PHONE VERIFICATION ---
-
-    /**
-     * Triggers sending an OTP to the user's saved phone number.
-     */
     @Override
     public void sendPhoneVerificationOtp(UserDetails userDetails) {
         User currentUser = (User) userDetails;
@@ -68,9 +66,6 @@ public class UserServiceImpl implements UserService {
         smsOtpService.sendOtp(currentUser.getPhoneNumber());
     }
 
-    /**
-     * Verifies the OTP and marks the user's phone as verified.
-     */
     @Override
     @Transactional
     public void verifyPhone(String otpCode, UserDetails userDetails) {
@@ -85,7 +80,6 @@ public class UserServiceImpl implements UserService {
             throw new IllegalStateException("Invalid or expired OTP.");
         }
 
-        // Update the user's verification status in the users table
         userRepo.setPhoneVerified(currentUser.getId());
     }
 }
