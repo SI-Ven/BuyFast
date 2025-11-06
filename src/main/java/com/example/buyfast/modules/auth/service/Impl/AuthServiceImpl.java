@@ -1,5 +1,7 @@
 package com.example.buyfast.modules.auth.service.Impl;
 
+// --- FIX: Add all these missing imports ---
+import com.example.buyfast.config.JwtService;
 import com.example.buyfast.modules.auth.dto.*;
 import com.example.buyfast.modules.auth.service.AuthService;
 import com.example.buyfast.modules.user.model.User;
@@ -7,7 +9,11 @@ import com.example.buyfast.modules.user.repository.UserRepo;
 import com.example.buyfast.modules.otp.service.OtpService;
 import com.example.buyfast.util.UuidService;
 import lombok.RequiredArgsConstructor;
-
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
+// --- End of new imports ---
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,8 +42,7 @@ public class AuthServiceImpl implements AuthService {
         user.setUserUuid(uuidService.generateUuid());
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
-        user.setDob(request.getDob());
-        user.setAddress(request.getAddress());
+        user.setUserName(request.getFirstName()+request.getLastName());
         user.setEmail(request.getEmail());
         user.setUserPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole("buyer"); // Default role
@@ -69,7 +74,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public AuthResponse verifyOtp(OtpRequest request) {
+    public ResponseEntity<String> verifyOtp(OtpRequest request) {
         boolean isValid = otpService.verifyOtp(request.getEmail(), request.getOtpCode());
 
         if (!isValid) {
@@ -79,12 +84,8 @@ public class AuthServiceImpl implements AuthService {
         // Activate the user
         userRepo.updateUserStatus(request.getEmail(), "active");
 
-        User user = userRepo.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalStateException("User not found after verification."));
-
-        // Automatically log them in by generating a token
-        String jwtToken = jwtService.generateToken(user);
-        return new AuthResponse(jwtToken);
+        // Return a simple string message instead of a token
+        return ResponseEntity.ok("Otp verified successfully");
     }
 
     @Override
@@ -113,11 +114,6 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalStateException("Passwords do not match.");
         }
 
-        // 2. Verify the OTP
-        boolean isValid = otpService.verifyOtp(request.getEmail(), request.getOtpCode());
-        if (!isValid) {
-            throw new IllegalStateException("Invalid or expired OTP.");
-        }
 
         // 3. OTP is valid, find user (we know they exist)
         User user = userRepo.findByEmail(request.getEmail())

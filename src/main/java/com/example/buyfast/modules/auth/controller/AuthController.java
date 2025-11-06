@@ -29,11 +29,11 @@ public class AuthController {
     }
 
     @PostMapping("/verify-otp")
-    public ResponseEntity<AuthResponse> verifyOtp(
+    public ResponseEntity<String> verifyOtp(
             @Valid @RequestBody OtpRequest request
     ) {
-        // This service method now returns an AuthResponse (JWT) on success
-        return ResponseEntity.ok(authService.verifyOtp(request));
+        // This now returns the ResponseEntity<String> from the service
+        return authService.verifyOtp(request);
     }
 
     @PostMapping("/resend-otp")

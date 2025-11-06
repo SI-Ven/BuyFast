@@ -8,8 +8,8 @@ import java.util.Optional;
 @Mapper
 public interface UserRepo {
 
-    @Insert("INSERT INTO users (user_uuid, first_name, last_name, dob, address, email, user_password, role, status, created_at) " +
-            "VALUES (#{userUuid}, #{firstName}, #{lastName}, #{dob}, #{address}, #{email}, #{userPassword}, #{role}, #{status}, CURRENT_TIMESTAMP)")
+    @Insert("INSERT INTO users (user_uuid, first_name, last_name,user_name, email, user_password, role, status, created_at) " +
+            "VALUES (#{userUuid}, #{firstName}, #{lastName},#{userName}, #{email}, #{userPassword}, #{role}, #{status}, CURRENT_TIMESTAMP)")
     @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
     void save(User user);
 

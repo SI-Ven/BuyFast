@@ -13,9 +13,6 @@ public class RegisterRequest {
     @NotBlank
     private String lastName;
 
-    private LocalDate dob;
-    private String address;
-
     @NotBlank
     @Email
     private String email;

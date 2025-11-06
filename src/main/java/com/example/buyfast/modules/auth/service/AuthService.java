@@ -1,6 +1,7 @@
 package com.example.buyfast.modules.auth.service;
 
 import com.example.buyfast.modules.auth.dto.*;
+import org.springframework.http.ResponseEntity;
 
 public interface AuthService {
     /**
@@ -16,7 +17,7 @@ public interface AuthService {
     /**
      * Verifies an OTP, activates the user, and returns a login token.
      */
-    AuthResponse verifyOtp(OtpRequest request);
+    ResponseEntity<String> verifyOtp(OtpRequest request);
 
     /**
      * Triggers an OTP send for an existing, active user.
