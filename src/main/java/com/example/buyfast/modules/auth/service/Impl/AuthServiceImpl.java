@@ -3,6 +3,8 @@ package com.example.buyfast.modules.auth.service.Impl;
 import com.example.buyfast.config.JwtService;
 import com.example.buyfast.modules.auth.dto.*;
 import com.example.buyfast.modules.auth.service.AuthService;
+import com.example.buyfast.modules.company.model.Company;
+import com.example.buyfast.modules.company.repository.CompanyRepo;
 import com.example.buyfast.modules.user.model.User;
 import com.example.buyfast.modules.user.repository.UserRepo;
 import com.example.buyfast.modules.otp.service.OtpService;
@@ -27,12 +29,12 @@ public class AuthServiceImpl implements AuthService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final OtpService otpService;
-
-    // ... [login, verifyOtp, requestPasswordReset methods are correct] ...
+    private final CompanyRepo companyRepo;
 
     @Override
     @Transactional
     public void register(RegisterRequest request) {
+        // ... (This method is unchanged)
         if (userRepo.findByEmail(request.getEmail()).isPresent()) {
             throw new IllegalStateException("Email already taken");
         }
@@ -41,16 +43,67 @@ public class AuthServiceImpl implements AuthService {
         user.setUserUuid(uuidService.generateUuid());
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
-        user.setUserName(request.getFirstName() + request.getLastName()); // From your file
+        user.setUserName(request.getFirstName() + request.getLastName());
         user.setEmail(request.getEmail());
         user.setUserPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole("buyer"); // Default role
         user.setStatus("pending"); // Await OTP verification
-        user.setCompanyId(null); // <-- NEWLY ADDED to match the save() method
+        user.setCompanyId(null);
 
-        userRepo.save(user); // This transaction will now commit
-        otpService.sendOtp(user.getEmail()); // This will save the OTP
+        userRepo.save(user);
+        otpService.sendOtp(user.getEmail());
     }
+
+    @Override
+    @Transactional
+    public void registerCompany(RegisterCompanyRequest request) {
+        // 1. Check if email is already taken
+        if (userRepo.findByEmail(request.getEmail()).isPresent()) {
+            throw new IllegalStateException("Email already taken");
+        }
+
+        // 2. Create the User first (with role 'admin_company')
+        User user = new User();
+        user.setUserUuid(uuidService.generateUuid());
+        user.setFirstName(request.getFirstName());
+        user.setLastName(request.getLastName());
+        user.setUserName(request.getFirstName() + request.getLastName());
+        user.setEmail(request.getEmail());
+        user.setUserPassword(passwordEncoder.encode(request.getPassword()));
+        user.setRole("admin_company"); // Set role to company admin
+        user.setStatus("pending"); // Await OTP verification
+        user.setCompanyId(null); // Will be updated
+        userRepo.save(user); // Save to get the generated user.id
+
+        // 3. Create the Company
+        Company company = new Company();
+        company.setCompanyUuid(uuidService.generateUuid());
+        company.setCompanyName(request.getCompanyName());
+        company.setIndustryType(request.getIndustryType());
+        company.setLogoUrl(request.getLogoUrl());
+        company.setDescription(request.getDescription());
+
+        // --- SET NEW ADDRESS FIELDS ---
+        company.setAddressLine1(request.getAddressLine1());
+        company.setCity(request.getCity());
+        company.setStateProvince(request.getStateProvince());
+        company.setPostalCode(request.getPostalCode());
+        company.setCountry(request.getCountry());
+        // --- END NEW FIELDS ---
+
+        company.setCreatedBy(user.getId()); // Link to the user we just created
+        company.setMaxSellers(3); // Default limit
+        company.setStatus("active");
+        companyRepo.insert(company); // Save to get the generated company.id
+
+        // 4. Link the User to their new Company
+        userRepo.updateUserCompanyId(user.getId(), company.getId());
+
+        // 5. Send OTP for account activation
+        otpService.sendOtp(user.getEmail());
+    }
+
+    // ... (login, verifyOtp, requestPasswordReset, resetPassword methods are unchanged) ...
 
     @Override
     @Transactional
@@ -96,28 +149,21 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
-
     @Override
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
-        // 1. Check if passwords match
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
             throw new IllegalStateException("Passwords do not match.");
         }
 
-        // --- THIS STEP WAS MISSING ---
-        // 2. Verify the OTP
         boolean isValid = otpService.verifyOtp(request.getEmail(), request.getOtpCode());
         if (!isValid) {
             throw new IllegalStateException("Invalid or expired OTP.");
         }
-        // --- END OF FIX ---
 
-        // 3. OTP is valid, find user (we know they exist)
         User user = userRepo.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalStateException("User not found."));
 
-        // 4. Encode and update the new password
         String encodedPassword = passwordEncoder.encode(request.getNewPassword());
         userRepo.updatePassword(user.getEmail(), encodedPassword);
     }

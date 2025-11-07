@@ -10,6 +10,12 @@ public interface AuthService {
     void register(RegisterRequest request);
 
     /**
+     * --- NEW METHOD ---
+     * Registers a new user as a Company Admin and creates their company.
+     */
+    void registerCompany(RegisterCompanyRequest request);
+
+    /**
      * Attempts to log in a user. Fails if credentials are bad or account is not 'active'.
      */
     AuthResponse login(LoginRequest request);

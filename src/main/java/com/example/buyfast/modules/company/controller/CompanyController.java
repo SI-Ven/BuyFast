@@ -22,7 +22,7 @@ public class CompanyController {
     private final CompanyService companyService;
 
     /**
-     * Endpoint for an authenticated user (buyer/seller) to create a new company.
+     * Endpoint for an existing authenticated user (buyer/seller) to create a new company.
      * This will upgrade their role to 'admin_company'.
      */
     @PostMapping

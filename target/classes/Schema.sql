@@ -350,11 +350,20 @@ CREATE TABLE company (
                          industry_type VARCHAR(100) NOT NULL,
                          logo_url VARCHAR(512),
                          description TEXT,
+
+    -- Address Fields --
+                         address_line_1 VARCHAR(255),
+                         city VARCHAR(100),
+                         state_province VARCHAR(100),
+                         postal_code VARCHAR(20),
+                         country VARCHAR(100),
+
                          verified BOOLEAN DEFAULT FALSE,
                          created_by BIGINT, -- FK to users(id), nullable
                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                          status VARCHAR(20) DEFAULT 'active',
-                         rating_average DECIMAL(3,2) DEFAULT 0.00
+                         rating_average DECIMAL(3,2) DEFAULT 0.00,
+                         max_sellers INT DEFAULT 3 -- For seller limit
 );
 
 -- =======================================================

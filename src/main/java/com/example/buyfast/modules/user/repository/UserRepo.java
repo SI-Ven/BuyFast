@@ -3,7 +3,7 @@ package com.example.buyfast.modules.user.repository;
 import com.example.buyfast.modules.user.model.User;
 import org.apache.ibatis.annotations.*;
 
-import java.util.List; // <-- NEW IMPORT
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -29,26 +29,23 @@ public interface UserRepo {
     @Update("UPDATE users SET user_password = #{newPassword} WHERE email = #{email}")
     void updatePassword(String email, String newPassword);
 
-    // --- THIS METHOD IS NOW FIXED (Commas were missing) ---
     @Update("UPDATE users SET " +
             "first_name = #{firstName}, " +
             "last_name = #{lastName}, " +
             "user_name = #{userName}, " +
-            "user_profile = #{userProfile}, " + // <-- FIXED
+            "user_profile = #{userProfile}, " +
             "dob = #{dob}, " +
-            "address = #{address}, " + // <-- FIXED
+            "address = #{address}, " +
             "phone_number = #{phoneNumber} " +
             "WHERE id = #{id}")
     void updateProfile(User user);
 
-    // --- NEW METHOD FOR ROLE UPDATE ---
     @Update("UPDATE users SET role = #{role} WHERE id = #{id}")
     void updateUserRole(@Param("id") Long id, @Param("role") String role);
 
     @Update("UPDATE users SET phone_verified = true WHERE id = #{id}")
     void setPhoneVerified(Long id);
 
-    // --- NEW METHOD ---
     @Update("UPDATE users SET verified = #{isVerified} WHERE id = #{id}")
     void setVerifiedStatus(@Param("id") Long id, @Param("isVerified") boolean isVerified);
 
@@ -56,6 +53,10 @@ public interface UserRepo {
 
     @Update("UPDATE users SET role = #{role}, company_id = #{companyId} WHERE id = #{userId}")
     void updateUserRoleAndCompany(@Param("userId") Long userId, @Param("role") String role, @Param("companyId") Long companyId);
+
+    // --- NEW METHOD FOR REGISTER-COMPANY FLOW ---
+    @Update("UPDATE users SET company_id = #{companyId} WHERE id = #{userId}")
+    void updateUserCompanyId(@Param("userId") Long userId, @Param("companyId") Long companyId);
 
     @Select("SELECT COUNT(*) FROM users WHERE company_id = #{companyId} AND role = 'seller_company'")
     int countSellersByCompanyId(Long companyId);

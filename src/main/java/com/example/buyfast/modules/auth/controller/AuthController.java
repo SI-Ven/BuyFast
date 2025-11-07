@@ -28,6 +28,20 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("message", "User registered successfully. Please check your email for the OTP."));
     }
 
+    // --- NEW ENDPOINT ---
+    /**
+     * Registers a new user as a Company Admin and creates their company
+     * in a single step.
+     */
+    @PostMapping("/register-company")
+    public ResponseEntity<Map<String, String>> registerCompany(
+            @Valid @RequestBody RegisterCompanyRequest request
+    ) {
+        authService.registerCompany(request);
+        return ResponseEntity.ok(Map.of("message", "Company and admin user registered successfully. Please check your email for the OTP."));
+    }
+    // --- END OF NEW ENDPOINT ---
+
     @PostMapping("/verify-otp")
     public ResponseEntity<String> verifyOtp(
             @Valid @RequestBody OtpRequest request
@@ -50,8 +64,6 @@ public class AuthController {
     ) {
         return ResponseEntity.ok(authService.login(request));
     }
-
-    // --- NEW ENDPOINTS ---
 
     @PostMapping("/forgot-password")
     public ResponseEntity<Map<String, String>> forgotPassword(
