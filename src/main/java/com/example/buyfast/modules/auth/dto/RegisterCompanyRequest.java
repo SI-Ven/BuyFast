@@ -36,7 +36,7 @@ public class RegisterCompanyRequest {
 
     private String description;
 
-
+    // logoUrl is removed from here
 
     // --- NEW ADDRESS FIELDS ---
     @NotBlank(message = "Address line 1 is required")

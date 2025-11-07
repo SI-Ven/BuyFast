@@ -8,8 +8,11 @@ import java.util.Optional;
 @Mapper
 public interface CompanyRepo {
 
-    @Insert("INSERT INTO company (company_uuid, company_name, industry_type, logo_url, description, created_by, status, max_sellers) " +
-            "VALUES (#{companyUuid}, #{companyName}, #{industryType}, #{logoUrl}, #{description}, #{createdBy}, 'active', #{maxSellers})")
+    // --- FIXED INSERT to include address fields ---
+    @Insert("INSERT INTO company (company_uuid, company_name, industry_type, logo_url, description, created_by, status, max_sellers, " +
+            "address_line_1, city, state_province, postal_code, country) " +
+            "VALUES (#{companyUuid}, #{companyName}, #{industryType}, #{logoUrl}, #{description}, #{createdBy}, 'active', #{maxSellers}, " +
+            "#{addressLine1}, #{city}, #{stateProvince}, #{postalCode}, #{country})")
     @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
     void insert(Company company);
 
@@ -18,7 +21,9 @@ public interface CompanyRepo {
 
     @Select("SELECT * FROM company WHERE id = #{companyId}")
     Optional<Company> findById(Long companyId);
-    @Update(value = "UPDATE company SET " +
+
+    // --- NEW METHOD ---
+    @Update("UPDATE company SET " +
             "description = #{description}, " +
             "logo_url = #{logoUrl}, " +
             "address_line_1 = #{addressLine1}, " +

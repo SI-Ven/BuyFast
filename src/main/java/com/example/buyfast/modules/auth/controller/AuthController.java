@@ -26,30 +26,29 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> register(
             @Valid @RequestBody RegisterRequest request
     ) {
+        // ... (existing register endpoint)
         authService.register(request);
         return ResponseEntity.ok(Map.of("message", "User registered successfully. Please check your email for the OTP."));
     }
 
-    // --- NEW ENDPOINT ---
     /**
      * Registers a new user as a Company Admin and creates their company
      * in a single step.
      */
-    @PostMapping(value = "/register-company", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/register-company", consumes = MediaType.MULTIPART_FORM_DATA_VALUE) // <-- MODIFIED
     public ResponseEntity<Map<String, String>> registerCompany(
-            @Valid @RequestPart("request") RegisterCompanyRequest request,
-            @RequestPart(value = "logoFile", required = false) MultipartFile logoFile
+            @Valid @RequestPart("request") RegisterCompanyRequest request, // <-- MODIFIED
+            @RequestPart(value = "logoFile", required = false) MultipartFile logoFile // <-- MODIFIED
     ) {
         authService.registerCompany(request, logoFile); // <-- Pass the file to the service
         return ResponseEntity.ok(Map.of("message", "Company and admin user registered successfully. Please check your email for the OTP."));
     }
-    // --- END OF NEW ENDPOINT ---
 
     @PostMapping("/verify-otp")
     public ResponseEntity<String> verifyOtp(
             @Valid @RequestBody OtpRequest request
     ) {
-        // This now returns the ResponseEntity<String> from the service
+        // ... (existing verify-otp endpoint)
         return authService.verifyOtp(request);
     }
 
@@ -57,6 +56,7 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> resendOtp(
             @Valid @RequestBody ResendOtpRequest request
     ) {
+        // ... (existing resend-otp endpoint)
         otpService.sendOtp(request.getEmail());
         return ResponseEntity.ok(Map.of("message", "OTP has been resent."));
     }
@@ -65,6 +65,7 @@ public class AuthController {
     public ResponseEntity<AuthResponse> login(
             @Valid @RequestBody LoginRequest request
     ) {
+        // ... (existing login endpoint)
         return ResponseEntity.ok(authService.login(request));
     }
 
@@ -72,6 +73,7 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> forgotPassword(
             @Valid @RequestBody ForgotPasswordRequest request
     ) {
+        // ... (existing forgot-password endpoint)
         authService.requestPasswordReset(request);
         return ResponseEntity.ok(Map.of("message", "If an active account exists for this email, an OTP has been sent."));
     }
@@ -80,15 +82,16 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> resetPassword(
             @Valid @RequestBody ResetPasswordRequest request
     ) {
+        // ... (existing reset-password endpoint)
         authService.resetPassword(request);
         return ResponseEntity.ok(Map.of("message", "Password has been reset successfully. You can now login."));
     }
 
 
     // --- EXCEPTION HANDLERS (Unchanged) ---
-
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<Map<String, String>> handleDisabledException(DisabledException ex) {
+        // ... (existing handler)
         return ResponseEntity
                 .status(HttpStatus.UNAUTHORIZED)
                 .body(Map.of("error", "Account is not verified. Please check your email for the OTP."));
@@ -96,6 +99,7 @@ public class AuthController {
 
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Map<String, String>> handleIllegalStateException(IllegalStateException ex) {
+        // ... (existing handler)
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(Map.of("error", ex.getMessage()));

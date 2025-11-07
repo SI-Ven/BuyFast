@@ -32,12 +32,12 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final OtpService otpService;
     private final CompanyRepo companyRepo;
-    private final StorageService storageService;
+    private final StorageService storageService; // <-- Injected
 
     @Override
     @Transactional
     public void register(RegisterRequest request) {
-        // ... (This method is unchanged)
+        // ... (existing register logic)
         if (userRepo.findByEmail(request.getEmail()).isPresent()) {
             throw new IllegalStateException("Email already taken");
         }
@@ -73,14 +73,13 @@ public class AuthServiceImpl implements AuthService {
 
         // 3. Create the User first
         User user = new User();
-        // ... (set user fields: userUuid, firstName, lastName, email, password, etc.) ...
         user.setUserUuid(uuidService.generateUuid());
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
         user.setUserName(request.getFirstName() + request.getLastName());
         user.setEmail(request.getEmail());
         user.setUserPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole("admin_company");
+        user.setRole("admin_company"); // <-- Correct role
         user.setStatus("pending");
         user.setCompanyId(null);
         userRepo.save(user);
@@ -92,14 +91,11 @@ public class AuthServiceImpl implements AuthService {
         company.setIndustryType(request.getIndustryType());
         company.setLogoUrl(logoUrl); // <-- SET THE UPLOADED URL
         company.setDescription(request.getDescription());
-
-        // ... (set address fields) ...
         company.setAddressLine1(request.getAddressLine1());
         company.setCity(request.getCity());
         company.setStateProvince(request.getStateProvince());
         company.setPostalCode(request.getPostalCode());
         company.setCountry(request.getCountry());
-
         company.setCreatedBy(user.getId());
         company.setMaxSellers(3);
         company.setStatus("active");
@@ -112,11 +108,10 @@ public class AuthServiceImpl implements AuthService {
         otpService.sendOtp(user.getEmail());
     }
 
-    // ... (login, verifyOtp, requestPasswordReset, resetPassword methods are unchanged) ...
-
     @Override
     @Transactional
     public AuthResponse login(LoginRequest request) {
+        // ... (existing login logic)
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),
@@ -135,6 +130,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public ResponseEntity<String> verifyOtp(OtpRequest request) {
+        // ... (existing verifyOtp logic)
         boolean isValid = otpService.verifyOtp(request.getEmail(), request.getOtpCode());
 
         if (!isValid) {
@@ -147,6 +143,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void requestPasswordReset(ForgotPasswordRequest request) {
+        // ... (existing requestPasswordReset logic)
         Optional<User> userOpt = userRepo.findByEmail(request.getEmail());
 
         if (userOpt.isPresent() && "active".equals(userOpt.get().getStatus())) {
@@ -161,6 +158,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
+        // ... (existing resetPassword logic)
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
             throw new IllegalStateException("Passwords do not match.");
         }
