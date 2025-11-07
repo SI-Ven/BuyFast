@@ -6,9 +6,11 @@ import com.example.buyfast.modules.otp.service.OtpService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -33,11 +35,12 @@ public class AuthController {
      * Registers a new user as a Company Admin and creates their company
      * in a single step.
      */
-    @PostMapping("/register-company")
+    @PostMapping(value = "/register-company", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, String>> registerCompany(
-            @Valid @RequestBody RegisterCompanyRequest request
+            @Valid @RequestPart("request") RegisterCompanyRequest request,
+            @RequestPart(value = "logoFile", required = false) MultipartFile logoFile
     ) {
-        authService.registerCompany(request);
+        authService.registerCompany(request, logoFile); // <-- Pass the file to the service
         return ResponseEntity.ok(Map.of("message", "Company and admin user registered successfully. Please check your email for the OTP."));
     }
     // --- END OF NEW ENDPOINT ---

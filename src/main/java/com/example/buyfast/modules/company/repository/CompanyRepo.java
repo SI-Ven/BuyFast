@@ -1,10 +1,7 @@
 package com.example.buyfast.modules.company.repository;
 
 import com.example.buyfast.modules.company.model.Company;
-import org.apache.ibatis.annotations.Insert;
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Options;
-import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.*;
 
 import java.util.Optional;
 
@@ -21,4 +18,14 @@ public interface CompanyRepo {
 
     @Select("SELECT * FROM company WHERE id = #{companyId}")
     Optional<Company> findById(Long companyId);
+    @Update(value = "UPDATE company SET " +
+            "description = #{description}, " +
+            "logo_url = #{logoUrl}, " +
+            "address_line_1 = #{addressLine1}, " +
+            "city = #{city}, " +
+            "state_province = #{stateProvince}, " +
+            "postal_code = #{postalCode}, " +
+            "country = #{country} " +
+            "WHERE id = #{id}")
+    void updateCompanyProfile(Company company);
 }

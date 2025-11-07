@@ -4,6 +4,7 @@ import com.example.buyfast.modules.company.dto.*;
 import com.example.buyfast.modules.company.model.Company;
 import com.example.buyfast.modules.company.repository.CompanyRepo;
 import com.example.buyfast.modules.company.service.CompanyService;
+import com.example.buyfast.modules.storage.service.StorageService;
 import com.example.buyfast.modules.user.model.User;
 import com.example.buyfast.modules.user.repository.UserRepo;
 import com.example.buyfast.util.UuidService;
@@ -12,6 +13,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -25,6 +27,7 @@ public class CompanyServiceImpl implements CompanyService {
     private final UserRepo userRepo;
     private final UuidService uuidService;
     private final PasswordEncoder passwordEncoder;
+    private final StorageService storageService;
 
     @Override
     @Transactional
@@ -152,5 +155,42 @@ public class CompanyServiceImpl implements CompanyService {
         }
 
         userRepo.deleteById(seller.getId());
+    }
+
+    @Override
+    @Transactional
+    public void updateCompanyProfile(UpdateCompanyRequest request, MultipartFile logoFile, UserDetails adminDetails) { // <-- MODIFIED
+        User adminUser = (User) adminDetails;
+
+        Company company = companyRepo.findById(adminUser.getCompanyId())
+                .orElseThrow(() -> new IllegalStateException("Admin is not associated with a valid company."));
+
+        // 1. Handle Logo File Upload (if provided)
+        if (logoFile != null && !logoFile.isEmpty()) {
+            String newLogoUrl = storageService.uploadFile(logoFile); // <-- Use Pinata service
+            company.setLogoUrl(newLogoUrl);
+        }
+
+        // 2. Apply other partial updates
+        if (request.getDescription() != null) {
+            company.setDescription(request.getDescription());
+        }
+        if (request.getAddressLine1() != null) {
+            company.setAddressLine1(request.getAddressLine1());
+        }
+        if (request.getCity() != null) {
+            company.setCity(request.getCity());
+        }
+        if (request.getStateProvince() != null) {
+            company.setStateProvince(request.getStateProvince());
+        }
+        if (request.getPostalCode() != null) {
+            company.setPostalCode(request.getPostalCode());
+        }
+        if (request.getCountry() != null) {
+            company.setCountry(request.getCountry());
+        }
+
+        companyRepo.updateCompanyProfile(company);
     }
 }

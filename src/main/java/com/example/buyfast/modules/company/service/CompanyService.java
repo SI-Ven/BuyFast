@@ -1,7 +1,11 @@
 package com.example.buyfast.modules.company.service;
 
 import com.example.buyfast.modules.company.dto.*;
+import com.example.buyfast.modules.company.model.Company;
+import jakarta.validation.Valid;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.multipart.MultipartFile;
+
 import java.util.UUID;
 
 public interface CompanyService {
@@ -30,4 +34,6 @@ public interface CompanyService {
      * Deletes a seller managed by the admin.
      */
     void deleteSeller(UUID sellerUuid, UserDetails adminDetails);
+
+    void updateCompanyProfile(UpdateCompanyRequest request, MultipartFile logoFile, UserDetails adminDetails); // <-- MODIFIED
 }

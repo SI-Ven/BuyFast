@@ -14,8 +14,6 @@ public class UpdateCompanyRequest {
     @Size(min = 10, max = 2000)
     private String description;
 
-    @Size(max = 512)
-    private String logoUrl;
 
     @Size(max = 255)
     private String addressLine1;

@@ -36,8 +36,7 @@ public class RegisterCompanyRequest {
 
     private String description;
 
-    @Size(max = 512)
-    private String logoUrl;
+
 
     // --- NEW ADDRESS FIELDS ---
     @NotBlank(message = "Address line 1 is required")

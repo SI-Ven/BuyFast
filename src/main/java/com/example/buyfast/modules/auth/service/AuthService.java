@@ -2,6 +2,7 @@ package com.example.buyfast.modules.auth.service;
 
 import com.example.buyfast.modules.auth.dto.*;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface AuthService {
     /**
@@ -13,7 +14,7 @@ public interface AuthService {
      * --- NEW METHOD ---
      * Registers a new user as a Company Admin and creates their company.
      */
-    void registerCompany(RegisterCompanyRequest request);
+    void registerCompany(RegisterCompanyRequest request, MultipartFile logoFile); // <-- MODIFIED
 
     /**
      * Attempts to log in a user. Fails if credentials are bad or account is not 'active'.
