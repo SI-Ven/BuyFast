@@ -17,6 +17,11 @@ public interface VerifyRepo {
     @Select("SELECT * FROM verify WHERE verify_uuid = #{verifyUuid}")
     Optional<Verify> findByUuid(UUID verifyUuid);
 
+    // --- NEW METHOD ---
+    @Select("SELECT * FROM verify WHERE target_id = #{targetId} AND target_type = #{targetType} AND status = 'pending'")
+    Optional<Verify> findPendingRequest(@Param("targetId") UUID targetId, @Param("targetType") String targetType);
+
+
     @Update("UPDATE verify SET " +
             "status = #{status}, " +
             "reviewed_by = #{reviewedBy}, " +

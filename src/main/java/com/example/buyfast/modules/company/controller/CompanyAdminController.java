@@ -8,6 +8,8 @@ import com.example.buyfast.modules.company.dto.UpdateSellerRequest;
 import com.example.buyfast.modules.company.model.Company;
 import com.example.buyfast.modules.company.service.CompanyService;
 import com.example.buyfast.modules.user.model.User;
+
+// REMOVED ObjectMapper and IOException imports - no longer needed
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,6 +29,9 @@ import java.util.UUID;
 public class CompanyAdminController {
 
     private final CompanyService companyService;
+    // ObjectMapper is no longer needed
+
+    // --- UNCHANGED METHODS (getDashboard, createSeller, etc.) ---
 
     @GetMapping("/dashboard")
     public ResponseEntity<ApiResponse<CompanyDashboardDto>> getDashboard(
@@ -63,14 +68,33 @@ public class CompanyAdminController {
         return ResponseEntity.ok(ApiResponse.success("Seller deleted successfully.", seller));
     }
 
-    // This controller method is also 100% correct
+    // --- THIS IS THE FIXED METHOD ---
     @PutMapping(value = "/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<Company>> updateCompanyProfile(
-            @Valid @RequestPart("request") UpdateCompanyRequest request,
-            @RequestPart(value = "logoFile", required = false) MultipartFile logoFile, // 'required = false' is key
-            @AuthenticationPrincipal UserDetails userDetails) {
+            // --- All fields are now @RequestParam and optional ---
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "addressLine1", required = false) String addressLine1,
+            @RequestParam(value = "city", required = false) String city,
+            @RequestParam(value = "stateProvince", required = false) String stateProvince,
+            @RequestParam(value = "postalCode", required = false) String postalCode,
+            @RequestParam(value = "country", required = false) String country,
 
+            // --- The file remains a @RequestPart ---
+            @RequestPart(value = "logoFile", required = false) MultipartFile logoFile,
+            @AuthenticationPrincipal UserDetails userDetails) { // <-- No more IOException
+
+        // --- Manually create the DTO from the params ---
+        UpdateCompanyRequest request = new UpdateCompanyRequest();
+        request.setDescription(description);
+        request.setAddressLine1(addressLine1);
+        request.setCity(city);
+        request.setStateProvince(stateProvince);
+        request.setPostalCode(postalCode);
+        request.setCountry(country);
+
+        // --- Pass the DTO to your service (service logic is unchanged) ---
         Company updatedCompany = companyService.updateCompanyProfile(request, logoFile, userDetails);
+
         return ResponseEntity.ok(ApiResponse.success("Company profile updated successfully.", updatedCompany));
     }
 }

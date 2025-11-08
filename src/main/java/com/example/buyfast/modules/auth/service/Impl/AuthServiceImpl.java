@@ -9,6 +9,8 @@ import com.example.buyfast.modules.storage.service.StorageService;
 import com.example.buyfast.modules.user.model.User;
 import com.example.buyfast.modules.user.repository.UserRepo;
 import com.example.buyfast.modules.otp.service.OtpService;
+import com.example.buyfast.modules.verify.model.Verify; // <-- NEW IMPORT
+import com.example.buyfast.modules.verify.repository.VerifyRepo; // <-- NEW IMPORT
 import com.example.buyfast.util.UuidService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -33,11 +35,12 @@ public class AuthServiceImpl implements AuthService {
     private final OtpService otpService;
     private final CompanyRepo companyRepo;
     private final StorageService storageService;
+    private final VerifyRepo verifyRepo; // <-- NEW: Inject VerifyRepo
 
-    // --- MODIFIED ---
     @Override
     @Transactional
     public User register(RegisterRequest request) {
+        // ... (unchanged)
         if (userRepo.findByEmail(request.getEmail()).isPresent()) {
             throw new IllegalStateException("Email already taken");
         }
@@ -49,13 +52,13 @@ public class AuthServiceImpl implements AuthService {
         user.setUserName(request.getFirstName() + request.getLastName());
         user.setEmail(request.getEmail());
         user.setUserPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole("buyer"); // Default role
-        user.setStatus("pending"); // Await OTP verification
+        user.setRole("buyer");
+        user.setStatus("pending");
         user.setCompanyId(null);
 
         userRepo.save(user);
         otpService.sendOtp(user.getEmail());
-        return user; // <-- RETURN USER
+        return user;
     }
 
     // --- MODIFIED ---
@@ -71,6 +74,7 @@ public class AuthServiceImpl implements AuthService {
             logoUrl = storageService.uploadFile(logoFile);
         }
 
+        // 1. Create User
         User user = new User();
         user.setUserUuid(uuidService.generateUuid());
         user.setFirstName(request.getFirstName());
@@ -79,10 +83,11 @@ public class AuthServiceImpl implements AuthService {
         user.setEmail(request.getEmail());
         user.setUserPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole("admin_company");
-        user.setStatus("pending");
+        user.setStatus("pending"); // User is pending until email OTP is verified
         user.setCompanyId(null);
         userRepo.save(user);
 
+        // 2. Create Company
         Company company = new Company();
         company.setCompanyUuid(uuidService.generateUuid());
         company.setCompanyName(request.getCompanyName());
@@ -96,20 +101,32 @@ public class AuthServiceImpl implements AuthService {
         company.setCountry(request.getCountry());
         company.setCreatedBy(user.getId());
         company.setMaxSellers(3);
-        company.setStatus("active");
+        company.setStatus("pending"); // <-- NEW: Company starts as pending
         companyRepo.insert(company);
 
+        // 3. Link user to company
         userRepo.updateUserCompanyId(user.getId(), company.getId());
+
+        // 4. Create Verification Request for the Company
+        Verify verification = new Verify();
+        verification.setVerifyUuid(uuidService.generateUuid());
+        verification.setTargetType("company"); // <-- Set target type
+        verification.setTargetId(company.getCompanyUuid()); // <-- Set target ID
+        verification.setSubmittedBy(user.getId());
+        verification.setStatus("pending");
+        verifyRepo.createVerification(verification); // <-- Save request for admin
+
+        // 5. Send email OTP for user activation
         otpService.sendOtp(user.getEmail());
 
-        user.setCompanyId(company.getId()); // <-- Set company ID on the user object before returning
-        return user; // <-- RETURN USER
+        user.setCompanyId(company.getId());
+        return user;
     }
 
-    // --- MODIFIED ---
     @Override
     @Transactional
     public User verifyOtp(OtpRequest request) {
+        // ... (unchanged)
         boolean isValid = otpService.verifyOtp(request.getEmail(), request.getOtpCode());
 
         if (!isValid) {
@@ -122,13 +139,13 @@ public class AuthServiceImpl implements AuthService {
         user.setStatus("active");
         userRepo.updateUserStatus(request.getEmail(), "active");
 
-        return user; // <-- RETURN USER
+        return user;
     }
 
-    // --- UNCHANGED (login, requestPasswordReset, resetPassword) ---
     @Override
     @Transactional
     public AuthResponse login(LoginRequest request) {
+        // ... (unchanged)
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),
@@ -147,6 +164,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void requestPasswordReset(ForgotPasswordRequest request) {
+        // ... (unchanged)
         Optional<User> userOpt = userRepo.findByEmail(request.getEmail());
 
         if (userOpt.isPresent() && "active".equals(userOpt.get().getStatus())) {
@@ -161,6 +179,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
+        // ... (unchanged)
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
             throw new IllegalStateException("Passwords do not match.");
         }

@@ -28,11 +28,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final UserRepo userRepo;
-    // --- FIELDS FOR THE FILTER AND PROVIDER ARE REMOVED FROM HERE ---
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                                   // --- INJECT BEANS AS METHOD PARAMETERS ---
                                                    AuthenticationProvider authenticationProvider,
                                                    JwtAuthenticationFilter jwtAuthFilter) throws Exception {
         http
@@ -45,28 +43,31 @@ public class SecurityConfig {
                                 "/swagger-ui/**")
                         .permitAll()
 
-                        // Allow only PLATFORM admins to approve/reject
-                        // Company admins should NOT be able to approve/reject user verification
+                        // --- SUPER ADMIN ENDPOINTS ---
+                        // Only PLATFORM admins can approve/reject ANY verification request
                         .requestMatchers(HttpMethod.POST, "/api/v1/verify/approve/**", "/api/v1/verify/reject/**")
-                        .hasAuthority("admin_platform") // <-- CHANGED from hasAnyAuthority
+                        .hasAuthority("admin_platform") // <-- This is your "Super Admin"
 
-                        // --- NEW RULES for Company Admin ---
-                        // Allow any authenticated user to create a company (their role will be upgraded)
-                        .requestMatchers(HttpMethod.POST, "/api/v1/company")
-                        .authenticated() // Any logged-in user can create one
-
-                        // Protect the company admin dashboard
+                        // --- COMPANY ADMIN ENDPOINTS ---
                         .requestMatchers("/api/v1/company-admin/**")
                         .hasAuthority("admin_company")
-                        // --- END NEW RULES ---
+
+                        // --- AUTHENTICATED USER ENDPOINTS ---
+                        // Any authenticated user can create a company (it will be pending)
+                        .requestMatchers(HttpMethod.POST, "/api/v1/company")
+                        .authenticated()
+                        // Any authenticated user can request to become a seller or verify their ID
+                        .requestMatchers(HttpMethod.POST, "/api/v1/user/become-seller", "/api/v1/verify/request-user")
+                        .authenticated()
+
 
                         // All other requests must be authenticated
                         .anyRequest()
                         .authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authenticationProvider(authenticationProvider) // <-- Use the parameter
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class); // <-- Use the parameter
+                .authenticationProvider(authenticationProvider)
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

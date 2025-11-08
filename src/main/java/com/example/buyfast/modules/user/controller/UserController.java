@@ -4,6 +4,7 @@ import com.example.buyfast.common.ApiResponse;
 import com.example.buyfast.modules.user.dto.UpdateProfileRequest;
 import com.example.buyfast.modules.user.model.User;
 import com.example.buyfast.modules.user.service.UserService;
+import com.example.buyfast.modules.verify.model.Verify; // <-- NEW IMPORT
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +21,6 @@ public class UserController {
 
     private final UserService userService;
 
-    // --- UNCHANGED (Already returns User) ---
     @PutMapping("/profile")
     public ResponseEntity<ApiResponse<User>> updateProfile(
             @Valid @RequestBody UpdateProfileRequest request,
@@ -32,14 +32,13 @@ public class UserController {
 
     // --- MODIFIED ---
     @PostMapping("/become-seller")
-    public ResponseEntity<ApiResponse<User>> becomeSeller( // <-- Changed to ApiResponse<User>
-                                                           @AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<ApiResponse<Verify>> becomeSeller( // <-- Changed to ApiResponse<Verify>
+                                                             @AuthenticationPrincipal UserDetails userDetails) {
 
-        User user = userService.becomeSeller(userDetails);
-        return ResponseEntity.ok(ApiResponse.success("Congratulations, you are now a seller!", user)); // <-- Add payload
+        Verify verificationRequest = userService.becomeSeller(userDetails);
+        return ResponseEntity.ok(ApiResponse.success("Your request to become a seller has been submitted for approval.", verificationRequest)); // <-- Add payload
     }
 
-    // --- UNCHANGED ---
     @PostMapping("/phone/send-otp")
     public ResponseEntity<ApiResponse<Object>> sendPhoneOtp(
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -48,11 +47,10 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.ok("OTP sent to your phone number."));
     }
 
-    // --- MODIFIED ---
     @PostMapping("/phone/verify-otp")
-    public ResponseEntity<ApiResponse<User>> verifyPhoneOtp( // <-- Changed to ApiResponse<User>
-                                                             @Valid @RequestBody Map<String, String> payload,
-                                                             @AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<ApiResponse<User>> verifyPhoneOtp(
+            @Valid @RequestBody Map<String, String> payload,
+            @AuthenticationPrincipal UserDetails userDetails) {
 
         String otpCode = payload.get("otpCode");
         if (otpCode == null || otpCode.isBlank()) {
@@ -60,6 +58,6 @@ public class UserController {
         }
 
         User user = userService.verifyPhone(otpCode, userDetails);
-        return ResponseEntity.ok(ApiResponse.success("Phone number verified successfully.", user)); // <-- Add payload
+        return ResponseEntity.ok(ApiResponse.success("Phone number verified successfully.", user));
     }
 }

@@ -29,7 +29,8 @@ public class CompanyServiceImpl implements CompanyService {
     private final PasswordEncoder passwordEncoder;
     private final StorageService storageService;
 
-    // --- MODIFIED ---
+    // ... (createCompany, getCompanyDashboard, createSeller, updateSeller, deleteSeller methods are all correct) ...
+
     @Override
     @Transactional
     public Company createCompany(CreateCompanyRequest request, UserDetails adminDetails) {
@@ -58,10 +59,9 @@ public class CompanyServiceImpl implements CompanyService {
         companyRepo.insert(company);
         userRepo.updateUserRoleAndCompany(adminUser.getId(), "admin_company", company.getId());
 
-        return company; // <-- RETURN COMPANY
+        return company;
     }
 
-    // --- UNCHANGED ---
     @Override
     public CompanyDashboardDto getCompanyDashboard(UserDetails adminDetails) {
         User adminUser = (User) adminDetails;
@@ -74,7 +74,6 @@ public class CompanyServiceImpl implements CompanyService {
         return CompanyDashboardDto.fromCompany(company, sellerDtos, sellers.size());
     }
 
-    // --- MODIFIED ---
     @Override
     @Transactional
     public User createSeller(CreateSellerRequest request, UserDetails adminDetails) {
@@ -102,10 +101,9 @@ public class CompanyServiceImpl implements CompanyService {
         seller.setStatus("active");
 
         userRepo.save(seller);
-        return seller; // <-- RETURN SELLER
+        return seller;
     }
 
-    // --- MODIFIED ---
     @Override
     @Transactional
     public User updateSeller(UUID sellerUuid, UpdateSellerRequest request, UserDetails adminDetails) {
@@ -119,10 +117,9 @@ public class CompanyServiceImpl implements CompanyService {
         seller.setLastName(request.getLastName());
         seller.setStatus(request.getStatus());
         userRepo.updateSellerProfile(seller.getId(), seller.getFirstName(), seller.getLastName(), seller.getStatus());
-        return seller; // <-- RETURN SELLER
+        return seller;
     }
 
-    // --- MODIFIED ---
     @Override
     @Transactional
     public User deleteSeller(UUID sellerUuid, UserDetails adminDetails) {
@@ -136,10 +133,11 @@ public class CompanyServiceImpl implements CompanyService {
             throw new IllegalStateException("Admin cannot delete themselves.");
         }
         userRepo.deleteById(seller.getId());
-        return seller; // <-- RETURN SELLER
+        return seller;
     }
 
-    // --- THIS METHOD IS ALREADY 100% CORRECT ---
+
+    // --- THIS METHOD IS 100% CORRECT AND DOES NOT NEED TO CHANGE ---
     @Override
     @Transactional
     public Company updateCompanyProfile(UpdateCompanyRequest request, MultipartFile logoFile, UserDetails adminDetails) {

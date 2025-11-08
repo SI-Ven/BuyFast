@@ -5,6 +5,9 @@ import com.example.buyfast.modules.user.dto.UpdateProfileRequest;
 import com.example.buyfast.modules.user.model.User;
 import com.example.buyfast.modules.user.repository.UserRepo;
 import com.example.buyfast.modules.user.service.UserService;
+import com.example.buyfast.modules.verify.model.Verify; // <-- NEW IMPORT
+import com.example.buyfast.modules.verify.repository.VerifyRepo; // <-- NEW IMPORT
+import com.example.buyfast.util.UuidService; // <-- NEW IMPORT
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -16,8 +19,9 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepo userRepo;
     private final SmsOtpService smsOtpService;
+    private final VerifyRepo verifyRepo; // <-- NEW: Inject VerifyRepo
+    private final UuidService uuidService; // <-- NEW: Inject UuidService
 
-    // --- UNCHANGED (Already returns User) ---
     @Override
     @Transactional
     public User updateUserProfile(UpdateProfileRequest request, UserDetails userDetails) {
@@ -29,6 +33,7 @@ public class UserServiceImpl implements UserService {
         if (request.getLastName() != null) {
             currentUser.setLastName(request.getLastName());
         }
+        // ... (rest of the profile update logic is unchanged) ...
         if (request.getUserName() != null) {
             currentUser.setUserName(request.getUserName());
         }
@@ -55,21 +60,33 @@ public class UserServiceImpl implements UserService {
     // --- MODIFIED ---
     @Override
     @Transactional
-    public User becomeSeller(UserDetails userDetails) {
+    public Verify becomeSeller(UserDetails userDetails) {
         User currentUser = (User) userDetails;
 
         if (!"buyer".equals(currentUser.getRole())) {
             throw new IllegalStateException("Only buyers can become sellers.");
         }
 
-        userRepo.updateUserRole(currentUser.getId(), "seller");
-        currentUser.setRole("seller"); // <-- Update object in memory
-        return currentUser; // <-- RETURN USER
+        // Check for existing pending request
+        verifyRepo.findPendingRequest(currentUser.getUserUuid(), "seller").ifPresent(v -> {
+            throw new IllegalStateException("You already have a pending seller request.");
+        });
+
+        // Create a verification request instead of updating the role
+        Verify verification = new Verify();
+        verification.setVerifyUuid(uuidService.generateUuid());
+        verification.setTargetType("seller"); // <-- Set target type
+        verification.setTargetId(currentUser.getUserUuid()); // <-- Set target ID
+        verification.setSubmittedBy(currentUser.getId());
+        verification.setStatus("pending");
+
+        verifyRepo.createVerification(verification);
+        return verification; // <-- Return the new request
     }
 
-    // --- UNCHANGED ---
     @Override
     public void sendPhoneVerificationOtp(UserDetails userDetails) {
+        // ... (unchanged)
         User currentUser = (User) userDetails;
         if (currentUser.getPhoneNumber() == null || currentUser.getPhoneNumber().isEmpty()) {
             throw new IllegalStateException("Please add a phone number to your profile first.");
@@ -80,10 +97,10 @@ public class UserServiceImpl implements UserService {
         smsOtpService.sendOtp(currentUser.getPhoneNumber());
     }
 
-    // --- MODIFIED ---
     @Override
     @Transactional
     public User verifyPhone(String otpCode, UserDetails userDetails) {
+        // ... (unchanged)
         User currentUser = (User) userDetails;
         if (currentUser.getPhoneNumber() == null) {
             throw new IllegalStateException("No phone number found to verify.");
@@ -96,7 +113,7 @@ public class UserServiceImpl implements UserService {
         }
 
         userRepo.setPhoneVerified(currentUser.getId());
-        currentUser.setPhoneVerified(true); // <-- Update object in memory
-        return currentUser; // <-- RETURN USER
+        currentUser.setPhoneVerified(true);
+        return currentUser;
     }
 }
