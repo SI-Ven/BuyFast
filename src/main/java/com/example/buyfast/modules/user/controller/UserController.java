@@ -1,7 +1,8 @@
 package com.example.buyfast.modules.user.controller;
 
-import com.example.buyfast.modules.auth.dto.OtpRequest; // Re-using this DTO
+import com.example.buyfast.common.ApiResponse;
 import com.example.buyfast.modules.user.dto.UpdateProfileRequest;
+import com.example.buyfast.modules.user.model.User;
 import com.example.buyfast.modules.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,51 +20,46 @@ public class UserController {
 
     private final UserService userService;
 
+    // --- UNCHANGED (Already returns User) ---
     @PutMapping("/profile")
-    public ResponseEntity<Map<String, String>> updateProfile(
+    public ResponseEntity<ApiResponse<User>> updateProfile(
             @Valid @RequestBody UpdateProfileRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
 
-        userService.updateUserProfile(request, userDetails);
-        return ResponseEntity.ok(Map.of("message", "Profile updated successfully."));
+        User updatedUser = userService.updateUserProfile(request, userDetails);
+        return ResponseEntity.ok(ApiResponse.success("Profile updated successfully.", updatedUser));
     }
 
+    // --- MODIFIED ---
     @PostMapping("/become-seller")
-    public ResponseEntity<Map<String, String>> becomeSeller(
-            @AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<ApiResponse<User>> becomeSeller( // <-- Changed to ApiResponse<User>
+                                                           @AuthenticationPrincipal UserDetails userDetails) {
 
-        userService.becomeSeller(userDetails);
-        return ResponseEntity.ok(Map.of("message", "Congratulations, you are now a seller!"));
+        User user = userService.becomeSeller(userDetails);
+        return ResponseEntity.ok(ApiResponse.success("Congratulations, you are now a seller!", user)); // <-- Add payload
     }
 
-    // --- NEW ENDPOINTS FOR PHONE VERIFICATION ---
-
-    /**
-     * Sends a verification OTP to the user's registered phone number.
-     */
+    // --- UNCHANGED ---
     @PostMapping("/phone/send-otp")
-    public ResponseEntity<Map<String, String>> sendPhoneOtp(
+    public ResponseEntity<ApiResponse<Object>> sendPhoneOtp(
             @AuthenticationPrincipal UserDetails userDetails) {
 
         userService.sendPhoneVerificationOtp(userDetails);
-        return ResponseEntity.ok(Map.of("message", "OTP sent to your phone number."));
+        return ResponseEntity.ok(ApiResponse.ok("OTP sent to your phone number."));
     }
 
-    /**
-     * Verifies the phone OTP.
-     * We can re-use the OtpRequest DTO, but we only care about the 'otpCode' field.
-     */
+    // --- MODIFIED ---
     @PostMapping("/phone/verify-otp")
-    public ResponseEntity<Map<String, String>> verifyPhoneOtp(
-            @Valid @RequestBody Map<String, String> payload,
-            @AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<ApiResponse<User>> verifyPhoneOtp( // <-- Changed to ApiResponse<User>
+                                                             @Valid @RequestBody Map<String, String> payload,
+                                                             @AuthenticationPrincipal UserDetails userDetails) {
 
         String otpCode = payload.get("otpCode");
         if (otpCode == null || otpCode.isBlank()) {
             throw new IllegalStateException("otpCode is required.");
         }
 
-        userService.verifyPhone(otpCode, userDetails);
-        return ResponseEntity.ok(Map.of("message", "Phone number verified successfully."));
+        User user = userService.verifyPhone(otpCode, userDetails);
+        return ResponseEntity.ok(ApiResponse.success("Phone number verified successfully.", user)); // <-- Add payload
     }
 }

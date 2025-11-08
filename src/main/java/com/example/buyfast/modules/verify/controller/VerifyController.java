@@ -1,8 +1,8 @@
 package com.example.buyfast.modules.verify.controller;
 
-import com.example.buyfast.modules.verify.dto.VerificationRequest;
+import com.example.buyfast.common.ApiResponse;
+import com.example.buyfast.modules.verify.model.Verify; // <-- NEW IMPORT
 import com.example.buyfast.modules.verify.service.VerifyService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -21,47 +21,41 @@ public class VerifyController {
 
     private final VerifyService verifyService;
 
-    /**
-     * Endpoint for a user to submit their ID card for verification.
-     */
-    @PostMapping(value = "/request-user", consumes = MediaType.MULTIPART_FORM_DATA_VALUE) // <-- MODIFIED
-    public ResponseEntity<Map<String, String>> requestUserVerification(
-            @RequestPart("file") MultipartFile file, // <-- MODIFIED
-            @AuthenticationPrincipal UserDetails userDetails) {
+    // --- MODIFIED ---
+    @PostMapping(value = "/request-user", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<Verify>> requestUserVerification( // <-- Changed to ApiResponse<Verify>
+                                                                        @RequestPart("file") MultipartFile file,
+                                                                        @AuthenticationPrincipal UserDetails userDetails) {
 
-        verifyService.requestUserVerification(file, userDetails); // <-- MODIFIED
-        return ResponseEntity.ok(Map.of("message", "Verification request submitted successfully."));
+        Verify verification = verifyService.requestUserVerification(file, userDetails);
+        return ResponseEntity.ok(ApiResponse.success("Verification request submitted successfully.", verification)); // <-- Add payload
     }
 
-    /**
-     * Endpoint for an ADMIN to approve a request.
-     */
+    // --- MODIFIED ---
     @PostMapping("/approve/{verifyUuid}")
-    public ResponseEntity<Map<String, String>> approveRequest(
-            @PathVariable UUID verifyUuid,
-            @RequestBody(required = false) Map<String, String> payload,
-            @AuthenticationPrincipal UserDetails adminDetails) {
+    public ResponseEntity<ApiResponse<Verify>> approveRequest( // <-- Changed to ApiResponse<Verify>
+                                                               @PathVariable UUID verifyUuid,
+                                                               @RequestBody(required = false) Map<String, String> payload,
+                                                               @AuthenticationPrincipal UserDetails adminDetails) {
 
         String remarks = (payload != null) ? payload.get("remarks") : "Approved";
-        verifyService.approveVerification(verifyUuid, remarks, adminDetails);
-        return ResponseEntity.ok(Map.of("message", "Verification approved."));
+        Verify verification = verifyService.approveVerification(verifyUuid, remarks, adminDetails);
+        return ResponseEntity.ok(ApiResponse.success("Verification approved.", verification)); // <-- Add payload
     }
 
-    /**
-     * Endpoint for an ADMIN to reject a request.
-     */
+    // --- MODIFIED ---
     @PostMapping("/reject/{verifyUuid}")
-    public ResponseEntity<Map<String, String>> rejectRequest(
-            @PathVariable UUID verifyUuid,
-            @RequestBody Map<String, String> payload,
-            @AuthenticationPrincipal UserDetails adminDetails) {
+    public ResponseEntity<ApiResponse<Verify>> rejectRequest( // <-- Changed to ApiResponse<Verify>
+                                                              @PathVariable UUID verifyUuid,
+                                                              @RequestBody Map<String, String> payload,
+                                                              @AuthenticationPrincipal UserDetails adminDetails) {
 
         String remarks = payload.get("remarks");
         if (remarks == null || remarks.isBlank()) {
             throw new IllegalStateException("Rejection remarks are required.");
         }
 
-        verifyService.rejectVerification(verifyUuid, remarks, adminDetails);
-        return ResponseEntity.ok(Map.of("message", "Verification rejected."));
+        Verify verification = verifyService.rejectVerification(verifyUuid, remarks, adminDetails);
+        return ResponseEntity.ok(ApiResponse.success("Verification rejected.", verification)); // <-- Add payload
     }
 }

@@ -1,25 +1,25 @@
 package com.example.buyfast.modules.company.service;
 
 import com.example.buyfast.modules.company.dto.*;
+import com.example.buyfast.modules.company.model.Company;
+import com.example.buyfast.modules.user.model.User; // <-- NEW IMPORT
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.web.multipart.MultipartFile; // <-- ADDED
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
 public interface CompanyService {
 
-    void createCompany(CreateCompanyRequest request, UserDetails adminDetails);
+    // --- MODIFIED ---
+    Company createCompany(CreateCompanyRequest request, UserDetails adminDetails);
 
     CompanyDashboardDto getCompanyDashboard(UserDetails adminDetails);
 
-    void createSeller(CreateSellerRequest request, UserDetails adminDetails);
+    User createSeller(CreateSellerRequest request, UserDetails adminDetails);
 
-    void updateSeller(UUID sellerUuid, UpdateSellerRequest request, UserDetails adminDetails);
+    User updateSeller(UUID sellerUuid, UpdateSellerRequest request, UserDetails adminDetails);
 
-    void deleteSeller(UUID sellerUuid, UserDetails adminDetails);
+    User deleteSeller(UUID sellerUuid, UserDetails adminDetails);
 
-    /**
-     * Updates the company profile for the currently logged-in admin.
-     */
-    void updateCompanyProfile(UpdateCompanyRequest request, MultipartFile logoFile, UserDetails adminDetails); // <-- MODIFIED
+    Company updateCompanyProfile(UpdateCompanyRequest request, MultipartFile logoFile, UserDetails adminDetails);
 }

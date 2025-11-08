@@ -32,12 +32,12 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final OtpService otpService;
     private final CompanyRepo companyRepo;
-    private final StorageService storageService; // <-- Injected
+    private final StorageService storageService;
 
+    // --- MODIFIED ---
     @Override
     @Transactional
-    public void register(RegisterRequest request) {
-        // ... (existing register logic)
+    public User register(RegisterRequest request) {
         if (userRepo.findByEmail(request.getEmail()).isPresent()) {
             throw new IllegalStateException("Email already taken");
         }
@@ -55,23 +55,22 @@ public class AuthServiceImpl implements AuthService {
 
         userRepo.save(user);
         otpService.sendOtp(user.getEmail());
+        return user; // <-- RETURN USER
     }
 
+    // --- MODIFIED ---
     @Override
     @Transactional
-    public void registerCompany(RegisterCompanyRequest request, MultipartFile logoFile) { // <-- MODIFIED
-        // 1. Check if email is already taken
+    public User registerCompany(RegisterCompanyRequest request, MultipartFile logoFile) {
         if (userRepo.findByEmail(request.getEmail()).isPresent()) {
             throw new IllegalStateException("Email already taken");
         }
 
-        // 2. Upload Logo (if provided)
         String logoUrl = null;
         if (logoFile != null && !logoFile.isEmpty()) {
-            logoUrl = storageService.uploadFile(logoFile); // <-- Use Pinata service
+            logoUrl = storageService.uploadFile(logoFile);
         }
 
-        // 3. Create the User first
         User user = new User();
         user.setUserUuid(uuidService.generateUuid());
         user.setFirstName(request.getFirstName());
@@ -79,17 +78,16 @@ public class AuthServiceImpl implements AuthService {
         user.setUserName(request.getFirstName() + request.getLastName());
         user.setEmail(request.getEmail());
         user.setUserPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole("admin_company"); // <-- Correct role
+        user.setRole("admin_company");
         user.setStatus("pending");
         user.setCompanyId(null);
         userRepo.save(user);
 
-        // 4. Create the Company
         Company company = new Company();
         company.setCompanyUuid(uuidService.generateUuid());
         company.setCompanyName(request.getCompanyName());
         company.setIndustryType(request.getIndustryType());
-        company.setLogoUrl(logoUrl); // <-- SET THE UPLOADED URL
+        company.setLogoUrl(logoUrl);
         company.setDescription(request.getDescription());
         company.setAddressLine1(request.getAddressLine1());
         company.setCity(request.getCity());
@@ -101,17 +99,36 @@ public class AuthServiceImpl implements AuthService {
         company.setStatus("active");
         companyRepo.insert(company);
 
-        // 5. Link the User to their new Company
         userRepo.updateUserCompanyId(user.getId(), company.getId());
-
-        // 6. Send OTP
         otpService.sendOtp(user.getEmail());
+
+        user.setCompanyId(company.getId()); // <-- Set company ID on the user object before returning
+        return user; // <-- RETURN USER
     }
 
+    // --- MODIFIED ---
+    @Override
+    @Transactional
+    public User verifyOtp(OtpRequest request) {
+        boolean isValid = otpService.verifyOtp(request.getEmail(), request.getOtpCode());
+
+        if (!isValid) {
+            throw new IllegalStateException("Invalid or expired OTP");
+        }
+
+        User user = userRepo.findByEmail(request.getEmail())
+                .orElseThrow(() -> new IllegalStateException("User not found after OTP verification."));
+
+        user.setStatus("active");
+        userRepo.updateUserStatus(request.getEmail(), "active");
+
+        return user; // <-- RETURN USER
+    }
+
+    // --- UNCHANGED (login, requestPasswordReset, resetPassword) ---
     @Override
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        // ... (existing login logic)
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),
@@ -129,21 +146,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public ResponseEntity<String> verifyOtp(OtpRequest request) {
-        // ... (existing verifyOtp logic)
-        boolean isValid = otpService.verifyOtp(request.getEmail(), request.getOtpCode());
-
-        if (!isValid) {
-            throw new IllegalStateException("Invalid or expired OTP");
-        }
-        userRepo.updateUserStatus(request.getEmail(), "active");
-        return ResponseEntity.ok("Otp verified successfully");
-    }
-
-    @Override
-    @Transactional
     public void requestPasswordReset(ForgotPasswordRequest request) {
-        // ... (existing requestPasswordReset logic)
         Optional<User> userOpt = userRepo.findByEmail(request.getEmail());
 
         if (userOpt.isPresent() && "active".equals(userOpt.get().getStatus())) {
@@ -158,7 +161,6 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
-        // ... (existing resetPassword logic)
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
             throw new IllegalStateException("Passwords do not match.");
         }

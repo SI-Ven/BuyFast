@@ -12,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class CategoryServiceImpl implements CategoryService {
@@ -22,6 +24,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Transactional
     @Override
     public MainCategory createMainCategory(CreateMainCategoryRequest request) {
+        // ... (Unchanged)
         MainCategory mainCategory = new MainCategory();
         mainCategory.setMainCategoryUuid(uuidService.generateUuid());
         mainCategory.setMainCategoryName(request.getMainCategoryName());
@@ -34,6 +37,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Transactional
     @Override
     public Category createCategory(CreateCategoryRequest request) {
+        // ... (Unchanged)
         Long parentInternalId = categoryRepo.findMainCategoryIdByUuid(request.getMainCategoryUuid());
 
         if (parentInternalId == null) {
@@ -49,5 +53,18 @@ public class CategoryServiceImpl implements CategoryService {
         category.setLevel(2);
         categoryRepo.insertCategory(category);
         return category;
+    }
+
+    // --- MODIFIED METHOD ---
+    @Override
+    public List<MainCategory> getAllMainCategoriesWithSubCategories() {
+        // This one call now does all the work
+        return categoryRepo.findAllMainCategoriesWithSubCategories();
+    }
+
+    @Override
+    public List<Category> getAllSubCategories() {
+        // (Unchanged)
+        return categoryRepo.findAllSubCategories();
     }
 }

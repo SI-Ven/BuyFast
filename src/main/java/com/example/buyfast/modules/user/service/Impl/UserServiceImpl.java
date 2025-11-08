@@ -17,34 +17,45 @@ public class UserServiceImpl implements UserService {
     private final UserRepo userRepo;
     private final SmsOtpService smsOtpService;
 
+    // --- UNCHANGED (Already returns User) ---
     @Override
     @Transactional
-    public void updateUserProfile(UpdateProfileRequest request, UserDetails userDetails) {
+    public User updateUserProfile(UpdateProfileRequest request, UserDetails userDetails) {
         User currentUser = (User) userDetails;
+
+        if (request.getFirstName() != null) {
+            currentUser.setFirstName(request.getFirstName());
+        }
+        if (request.getLastName() != null) {
+            currentUser.setLastName(request.getLastName());
+        }
+        if (request.getUserName() != null) {
+            currentUser.setUserName(request.getUserName());
+        }
+        if (request.getUserProfile() != null) {
+            currentUser.setUserProfile(request.getUserProfile());
+        }
+        if (request.getDob() != null) {
+            currentUser.setDob(request.getDob());
+        }
+        if (request.getAddress() != null) {
+            currentUser.setAddress(request.getAddress());
+        }
 
         if (request.getPhoneNumber() != null && !request.getPhoneNumber().equals(currentUser.getPhoneNumber())) {
             currentUser.setPhoneVerified(false);
             currentUser.setPhoneNumber(request.getPhoneNumber());
         }
 
-        currentUser.setFirstName(request.getFirstName());
-        currentUser.setLastName(request.getLastName());
-        currentUser.setUserName(request.getUserName());
-        currentUser.setDob(request.getDob());
-        currentUser.setAddress(request.getAddress());
-
-        // --- THIS LINE WAS MISSING ---
-        currentUser.setUserProfile(request.getUserProfile());
-        // --- END OF FIX ---
-
         userRepo.updateProfile(currentUser);
+
+        return currentUser;
     }
 
-    // ... [becomeSeller, sendPhoneVerificationOtp, verifyPhone methods are correct] ...
-
+    // --- MODIFIED ---
     @Override
     @Transactional
-    public void becomeSeller(UserDetails userDetails) {
+    public User becomeSeller(UserDetails userDetails) {
         User currentUser = (User) userDetails;
 
         if (!"buyer".equals(currentUser.getRole())) {
@@ -52,8 +63,11 @@ public class UserServiceImpl implements UserService {
         }
 
         userRepo.updateUserRole(currentUser.getId(), "seller");
+        currentUser.setRole("seller"); // <-- Update object in memory
+        return currentUser; // <-- RETURN USER
     }
 
+    // --- UNCHANGED ---
     @Override
     public void sendPhoneVerificationOtp(UserDetails userDetails) {
         User currentUser = (User) userDetails;
@@ -66,9 +80,10 @@ public class UserServiceImpl implements UserService {
         smsOtpService.sendOtp(currentUser.getPhoneNumber());
     }
 
+    // --- MODIFIED ---
     @Override
     @Transactional
-    public void verifyPhone(String otpCode, UserDetails userDetails) {
+    public User verifyPhone(String otpCode, UserDetails userDetails) {
         User currentUser = (User) userDetails;
         if (currentUser.getPhoneNumber() == null) {
             throw new IllegalStateException("No phone number found to verify.");
@@ -81,5 +96,7 @@ public class UserServiceImpl implements UserService {
         }
 
         userRepo.setPhoneVerified(currentUser.getId());
+        currentUser.setPhoneVerified(true); // <-- Update object in memory
+        return currentUser; // <-- RETURN USER
     }
 }

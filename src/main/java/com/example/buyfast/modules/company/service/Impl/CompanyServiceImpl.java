@@ -13,7 +13,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile; // <-- ADDED
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -27,12 +27,12 @@ public class CompanyServiceImpl implements CompanyService {
     private final UserRepo userRepo;
     private final UuidService uuidService;
     private final PasswordEncoder passwordEncoder;
-    private final StorageService storageService; // <-- Injected
+    private final StorageService storageService;
 
+    // --- MODIFIED ---
     @Override
     @Transactional
-    public void createCompany(CreateCompanyRequest request, UserDetails adminDetails) {
-        // ... (existing createCompany logic)
+    public Company createCompany(CreateCompanyRequest request, UserDetails adminDetails) {
         User adminUser = (User) adminDetails;
 
         if (adminUser.getCompanyId() != null) {
@@ -49,22 +49,21 @@ public class CompanyServiceImpl implements CompanyService {
         company.setCompanyUuid(uuidService.generateUuid());
         company.setCompanyName(request.getCompanyName());
         company.setIndustryType(request.getIndustryType());
-        company.setLogoUrl(request.getLogoUrl()); // This is null, will be updated by registerCompany
+        company.setLogoUrl(request.getLogoUrl());
         company.setDescription(request.getDescription());
         company.setCreatedBy(adminUser.getId());
         company.setMaxSellers(3);
         company.setStatus("active");
 
-        // Note: Address fields are NOT set here, they are set in registerCompany flow
-
-        companyRepo.insert(company); // This insert is for the old flow, might need adjustment
-
+        companyRepo.insert(company);
         userRepo.updateUserRoleAndCompany(adminUser.getId(), "admin_company", company.getId());
+
+        return company; // <-- RETURN COMPANY
     }
 
+    // --- UNCHANGED ---
     @Override
     public CompanyDashboardDto getCompanyDashboard(UserDetails adminDetails) {
-        // ... (existing getCompanyDashboard logic)
         User adminUser = (User) adminDetails;
         Company company = companyRepo.findById(adminUser.getCompanyId())
                 .orElseThrow(() -> new IllegalStateException("Admin is not associated with a valid company."));
@@ -75,10 +74,10 @@ public class CompanyServiceImpl implements CompanyService {
         return CompanyDashboardDto.fromCompany(company, sellerDtos, sellers.size());
     }
 
+    // --- MODIFIED ---
     @Override
     @Transactional
-    public void createSeller(CreateSellerRequest request, UserDetails adminDetails) {
-        // ... (existing createSeller logic)
+    public User createSeller(CreateSellerRequest request, UserDetails adminDetails) {
         User adminUser = (User) adminDetails;
         Company company = companyRepo.findById(adminUser.getCompanyId())
                 .orElseThrow(() -> new IllegalStateException("Admin is not associated with a valid company."));
@@ -103,12 +102,13 @@ public class CompanyServiceImpl implements CompanyService {
         seller.setStatus("active");
 
         userRepo.save(seller);
+        return seller; // <-- RETURN SELLER
     }
 
+    // --- MODIFIED ---
     @Override
     @Transactional
-    public void updateSeller(UUID sellerUuid, UpdateSellerRequest request, UserDetails adminDetails) {
-        // ... (existing updateSeller logic)
+    public User updateSeller(UUID sellerUuid, UpdateSellerRequest request, UserDetails adminDetails) {
         User adminUser = (User) adminDetails;
         User seller = userRepo.findByUuid(sellerUuid)
                 .orElseThrow(() -> new IllegalStateException("Seller not found."));
@@ -119,12 +119,13 @@ public class CompanyServiceImpl implements CompanyService {
         seller.setLastName(request.getLastName());
         seller.setStatus(request.getStatus());
         userRepo.updateSellerProfile(seller.getId(), seller.getFirstName(), seller.getLastName(), seller.getStatus());
+        return seller; // <-- RETURN SELLER
     }
 
+    // --- MODIFIED ---
     @Override
     @Transactional
-    public void deleteSeller(UUID sellerUuid, UserDetails adminDetails) {
-        // ... (existing deleteSeller logic)
+    public User deleteSeller(UUID sellerUuid, UserDetails adminDetails) {
         User adminUser = (User) adminDetails;
         User seller = userRepo.findByUuid(sellerUuid)
                 .orElseThrow(() -> new IllegalStateException("Seller not found."));
@@ -135,24 +136,25 @@ public class CompanyServiceImpl implements CompanyService {
             throw new IllegalStateException("Admin cannot delete themselves.");
         }
         userRepo.deleteById(seller.getId());
+        return seller; // <-- RETURN SELLER
     }
 
-    // --- NEW METHOD IMPLEMENTATION ---
+    // --- THIS METHOD IS ALREADY 100% CORRECT ---
     @Override
     @Transactional
-    public void updateCompanyProfile(UpdateCompanyRequest request, MultipartFile logoFile, UserDetails adminDetails) {
+    public Company updateCompanyProfile(UpdateCompanyRequest request, MultipartFile logoFile, UserDetails adminDetails) {
         User adminUser = (User) adminDetails;
 
         Company company = companyRepo.findById(adminUser.getCompanyId())
                 .orElseThrow(() -> new IllegalStateException("Admin is not associated with a valid company."));
 
-        // 1. Handle Logo File Upload (if provided)
+        // This block correctly handles a null or empty file
         if (logoFile != null && !logoFile.isEmpty()) {
-            String newLogoUrl = storageService.uploadFile(logoFile); // <-- Use Pinata service
+            String newLogoUrl = storageService.uploadFile(logoFile);
             company.setLogoUrl(newLogoUrl);
         }
 
-        // 2. Apply other partial updates
+        // These blocks correctly handle partial JSON updates
         if (request.getDescription() != null) {
             company.setDescription(request.getDescription());
         }
@@ -173,5 +175,7 @@ public class CompanyServiceImpl implements CompanyService {
         }
 
         companyRepo.updateCompanyProfile(company);
+
+        return company;
     }
 }

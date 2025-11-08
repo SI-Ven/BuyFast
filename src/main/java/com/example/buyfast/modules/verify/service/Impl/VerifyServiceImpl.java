@@ -1,9 +1,8 @@
 package com.example.buyfast.modules.verify.service.Impl;
 
-import com.example.buyfast.modules.storage.service.StorageService; // <-- NEW IMPORT
+import com.example.buyfast.modules.storage.service.StorageService;
 import com.example.buyfast.modules.user.model.User;
 import com.example.buyfast.modules.user.repository.UserRepo;
-// No longer needs VerificationRequest
 import com.example.buyfast.modules.verify.model.Verify;
 import com.example.buyfast.modules.verify.repository.VerifyRepo;
 import com.example.buyfast.modules.verify.service.VerifyService;
@@ -12,7 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile; // <-- NEW IMPORT
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -23,32 +22,33 @@ public class VerifyServiceImpl implements VerifyService {
     private final VerifyRepo verifyRepo;
     private final UserRepo userRepo;
     private final UuidService uuidService;
-    private final StorageService storageService; // <-- NEW INJECTION
+    private final StorageService storageService;
 
-    @Override // <-- This now correctly overrides the interface
+    // --- MODIFIED ---
+    @Override
     @Transactional
-    public void requestUserVerification(MultipartFile file, UserDetails userDetails) {
+    public Verify requestUserVerification(MultipartFile file, UserDetails userDetails) {
         User currentUser = (User) userDetails;
 
-        // 1. Upload the file (this now calls PinataStorageServiceImpl)
         String fileUrl = storageService.uploadFile(file);
-
-        // 2. Simple JSON string to store the document URL
         String documentsJson = "{\"id_card_url\": \"" + fileUrl + "\"}";
 
         Verify verification = new Verify();
         verification.setVerifyUuid(uuidService.generateUuid());
         verification.setTargetType("user");
-        verification.setTargetId(currentUser.getUserUuid()); // The public UUID of the user
-        verification.setSubmittedBy(currentUser.getId());  // The internal ID of the user
+        verification.setTargetId(currentUser.getUserUuid());
+        verification.setSubmittedBy(currentUser.getId());
         verification.setVerifyDocuments(documentsJson);
+        // Status defaults to 'pending' in the DB
 
         verifyRepo.createVerification(verification);
+        return verification; // <-- RETURN VERIFICATION
     }
 
+    // --- MODIFIED ---
     @Override
     @Transactional
-    public void approveVerification(UUID verifyUuid, String remarks, UserDetails adminDetails) {
+    public Verify approveVerification(UUID verifyUuid, String remarks, UserDetails adminDetails) {
         User adminUser = (User) adminDetails;
         Verify verification = findVerification(verifyUuid);
 
@@ -60,11 +60,14 @@ public class VerifyServiceImpl implements VerifyService {
         verification.setRemarks(remarks);
         verification.setReviewedBy(adminUser.getId());
         verifyRepo.updateVerificationStatus(verification);
+
+        return verification; // <-- RETURN VERIFICATION
     }
 
+    // --- MODIFIED ---
     @Override
     @Transactional
-    public void rejectVerification(UUID verifyUuid, String remarks, UserDetails adminDetails) {
+    public Verify rejectVerification(UUID verifyUuid, String remarks, UserDetails adminDetails) {
         User adminUser = (User) adminDetails;
         Verify verification = findVerification(verifyUuid);
 
@@ -76,6 +79,8 @@ public class VerifyServiceImpl implements VerifyService {
         verification.setRemarks(remarks);
         verification.setReviewedBy(adminUser.getId());
         verifyRepo.updateVerificationStatus(verification);
+
+        return verification; // <-- RETURN VERIFICATION
     }
 
     private Verify findVerification(UUID verifyUuid) {

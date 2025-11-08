@@ -1,16 +1,17 @@
 package com.example.buyfast.modules.user.service;
 
 import com.example.buyfast.modules.user.dto.UpdateProfileRequest;
+import com.example.buyfast.modules.user.model.User;
 import org.springframework.security.core.userdetails.UserDetails;
 
 public interface UserService {
 
-    void updateUserProfile(UpdateProfileRequest request, UserDetails userDetails);
+    User updateUserProfile(UpdateProfileRequest request, UserDetails userDetails);
 
-    void becomeSeller(UserDetails userDetails);
+    // --- MODIFIED ---
+    User becomeSeller(UserDetails userDetails);
 
-    // --- NEW METHODS ---
     void sendPhoneVerificationOtp(UserDetails userDetails);
 
-    void verifyPhone(String otpCode, UserDetails userDetails);
+    User verifyPhone(String otpCode, UserDetails userDetails); // <-- MODIFIED
 }

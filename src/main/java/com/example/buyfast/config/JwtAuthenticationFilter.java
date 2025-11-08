@@ -2,6 +2,8 @@ package com.example.buyfast.config;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -12,25 +14,31 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.filter.GenericFilterBean; // <-- CHANGED from OncePerRequestFilter
 
 import java.io.IOException;
 
 @Component
 @RequiredArgsConstructor
-public class JwtAuthenticationFilter extends OncePerRequestFilter {
+// --- CHANGED to GenericFilterBean ---
+public class JwtAuthenticationFilter extends GenericFilterBean {
 
     private final JwtService jwtService;
-    private final UserDetailsService userDetailsService; // This is provided by your SecurityConfig
+    private final UserDetailsService userDetailsService;
 
+    // --- RENAMED from doFilterInternal and signature changed ---
     @Override
-    protected void doFilterInternal(
-            @NonNull HttpServletRequest request,
-            @NonNull HttpServletResponse response,
-            @NonNull FilterChain filterChain
+    public void doFilter(
+            ServletRequest request,
+            ServletResponse response,
+            FilterChain filterChain
     ) throws ServletException, IOException {
 
-        final String authHeader = request.getHeader("Authorization");
+        // --- Cast request and response ---
+        final HttpServletRequest httpRequest = (HttpServletRequest) request;
+        final HttpServletResponse httpResponse = (HttpServletResponse) response;
+
+        final String authHeader = httpRequest.getHeader("Authorization"); // <-- Use httpRequest
         final String jwt;
         final String userEmail;
 
@@ -52,12 +60,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         userDetails.getAuthorities()
                 );
                 authToken.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
+                        new WebAuthenticationDetailsSource().buildDetails(httpRequest) // <-- Use httpRequest
                 );
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         }
 
-        filterChain.doFilter(request, response);
+        filterChain.doFilter(request, response); // <-- Use original request/response
     }
 }
