@@ -10,6 +10,7 @@ import java.util.UUID;
 @Mapper
 public interface UserRepo {
 
+    // ... (existing methods like save, findByEmail, updateUserStatus, etc. are unchanged) ...
     @Insert("INSERT INTO users (user_uuid, first_name, last_name,user_name, email, user_password, role, status, created_at, company_id) " +
             "VALUES (#{userUuid}, #{firstName}, #{lastName},#{userName}, #{email}, #{userPassword}, #{role}, #{status}, CURRENT_TIMESTAMP, #{companyId})")
     @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
@@ -49,12 +50,9 @@ public interface UserRepo {
     @Update("UPDATE users SET verified = #{isVerified} WHERE id = #{id}")
     void setVerifiedStatus(@Param("id") Long id, @Param("isVerified") boolean isVerified);
 
-    // --- NEW METHODS FOR COMPANY ADMIN ---
-
     @Update("UPDATE users SET role = #{role}, company_id = #{companyId} WHERE id = #{userId}")
     void updateUserRoleAndCompany(@Param("userId") Long userId, @Param("role") String role, @Param("companyId") Long companyId);
 
-    // --- NEW METHOD FOR REGISTER-COMPANY FLOW ---
     @Update("UPDATE users SET company_id = #{companyId} WHERE id = #{userId}")
     void updateUserCompanyId(@Param("userId") Long userId, @Param("companyId") Long companyId);
 
@@ -69,4 +67,19 @@ public interface UserRepo {
 
     @Update("UPDATE users SET first_name = #{firstName}, last_name = #{lastName}, status = #{status} WHERE id = #{id}")
     void updateSellerProfile(@Param("id") Long id, @Param("firstName") String firstName, @Param("lastName") String lastName, @Param("status") String status);
+
+    // --- NEW METHODS FOR SUPER ADMIN ---
+
+    /**
+     * (Admin) Gets a list of all users in the system.
+     */
+    @Select("SELECT * FROM users ORDER BY created_at DESC")
+    List<User> findAllUsers();
+
+    /**
+     * (Admin) Updates a user's status by their public UUID.
+     * Used for banning, activating, etc.
+     */
+    @Update("UPDATE users SET status = #{status} WHERE user_uuid = #{uuid}")
+    void updateUserStatusByUuid(@Param("uuid") UUID uuid, @Param("status") String status);
 }

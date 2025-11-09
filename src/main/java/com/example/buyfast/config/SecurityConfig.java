@@ -46,7 +46,11 @@ public class SecurityConfig {
                         // --- SUPER ADMIN ENDPOINTS ---
                         // Only PLATFORM admins can approve/reject ANY verification request
                         .requestMatchers(HttpMethod.POST, "/api/v1/verify/approve/**", "/api/v1/verify/reject/**")
-                        .hasAuthority("admin_platform") // <-- This is your "Super Admin"
+                        .hasAuthority("admin_platform")
+
+                        // --- NEW RULE: Secure the new admin controller ---
+                        .requestMatchers("/api/v1/admin/**")
+                        .hasAuthority("admin_platform")
 
                         // --- COMPANY ADMIN ENDPOINTS ---
                         .requestMatchers("/api/v1/company-admin/**")
@@ -72,6 +76,7 @@ public class SecurityConfig {
         return http.build();
     }
 
+    // ... (rest of the file is unchanged) ...
     @Bean
     public UserDetailsService userDetailsService() {
         return username -> userRepo.findByEmail(username)

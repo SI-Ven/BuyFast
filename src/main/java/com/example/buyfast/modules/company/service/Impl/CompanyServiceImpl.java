@@ -7,6 +7,8 @@ import com.example.buyfast.modules.company.service.CompanyService;
 import com.example.buyfast.modules.storage.service.StorageService;
 import com.example.buyfast.modules.user.model.User;
 import com.example.buyfast.modules.user.repository.UserRepo;
+import com.example.buyfast.modules.verify.model.Verify; // <-- NEW IMPORT
+import com.example.buyfast.modules.verify.repository.VerifyRepo; // <-- NEW IMPORT
 import com.example.buyfast.util.UuidService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -28,9 +30,23 @@ public class CompanyServiceImpl implements CompanyService {
     private final UuidService uuidService;
     private final PasswordEncoder passwordEncoder;
     private final StorageService storageService;
+    private final VerifyRepo verifyRepo; // <-- NEW: Inject VerifyRepo
 
-    // ... (createCompany, getCompanyDashboard, createSeller, updateSeller, deleteSeller methods are all correct) ...
+    /**
+     * Helper method to get the admin's company AND verify it is active.
+     */
+    private Company getActiveCompanyForAdmin(UserDetails adminDetails) {
+        User adminUser = (User) adminDetails;
+        Company company = companyRepo.findById(adminUser.getCompanyId())
+                .orElseThrow(() -> new IllegalStateException("Admin is not associated with a valid company."));
 
+        if (!"active".equals(company.getStatus())) {
+            throw new IllegalStateException("Your company registration is not yet approved. Status: " + company.getStatus());
+        }
+        return company;
+    }
+
+    // --- MODIFIED ---
     @Override
     @Transactional
     public Company createCompany(CreateCompanyRequest request, UserDetails adminDetails) {
@@ -54,19 +70,32 @@ public class CompanyServiceImpl implements CompanyService {
         company.setDescription(request.getDescription());
         company.setCreatedBy(adminUser.getId());
         company.setMaxSellers(3);
-        company.setStatus("active");
+        company.setStatus("pending"); // <-- FIX: Set status to pending
 
         companyRepo.insert(company);
+
+        // Link user to company
         userRepo.updateUserRoleAndCompany(adminUser.getId(), "admin_company", company.getId());
+
+        // --- NEW: Create Verification Request ---
+        Verify verification = new Verify();
+        verification.setVerifyUuid(uuidService.generateUuid());
+        verification.setTargetType("company");
+        verification.setTargetId(company.getCompanyUuid());
+        verification.setSubmittedBy(adminUser.getId());
+        verification.setStatus("pending");
+        verifyRepo.createVerification(verification);
+        // --- END NEW ---
 
         return company;
     }
 
+    // --- MODIFIED ---
     @Override
     public CompanyDashboardDto getCompanyDashboard(UserDetails adminDetails) {
-        User adminUser = (User) adminDetails;
-        Company company = companyRepo.findById(adminUser.getCompanyId())
-                .orElseThrow(() -> new IllegalStateException("Admin is not associated with a valid company."));
+        // --- SECURITY CHECK ---
+        Company company = getActiveCompanyForAdmin(adminDetails);
+
         List<User> sellers = userRepo.findSellersByCompanyId(company.getId());
         List<SellerProfileDto> sellerDtos = sellers.stream()
                 .map(SellerProfileDto::fromUser)
@@ -74,12 +103,13 @@ public class CompanyServiceImpl implements CompanyService {
         return CompanyDashboardDto.fromCompany(company, sellerDtos, sellers.size());
     }
 
+    // --- MODIFIED ---
     @Override
     @Transactional
     public User createSeller(CreateSellerRequest request, UserDetails adminDetails) {
-        User adminUser = (User) adminDetails;
-        Company company = companyRepo.findById(adminUser.getCompanyId())
-                .orElseThrow(() -> new IllegalStateException("Admin is not associated with a valid company."));
+        // --- SECURITY CHECK ---
+        Company company = getActiveCompanyForAdmin(adminDetails);
+        User adminUser = (User) adminDetails; // We still need the user object
 
         int currentSellerCount = userRepo.countSellersByCompanyId(company.getId());
         if (currentSellerCount >= company.getMaxSellers()) {
@@ -104,15 +134,22 @@ public class CompanyServiceImpl implements CompanyService {
         return seller;
     }
 
+    // --- MODIFIED ---
     @Override
     @Transactional
     public User updateSeller(UUID sellerUuid, UpdateSellerRequest request, UserDetails adminDetails) {
-        User adminUser = (User) adminDetails;
+        // --- SECURITY CHECK ---
+        Company adminCompany = getActiveCompanyForAdmin(adminDetails);
+        User adminUser = (User) adminDetails; // We still need the user object
+
         User seller = userRepo.findByUuid(sellerUuid)
                 .orElseThrow(() -> new IllegalStateException("Seller not found."));
-        if (seller.getCompanyId() == null || !seller.getCompanyId().equals(adminUser.getCompanyId())) {
+
+        // Check if seller belongs to the admin's company
+        if (seller.getCompanyId() == null || !seller.getCompanyId().equals(adminCompany.getId())) {
             throw new IllegalStateException("You do not have permission to modify this seller.");
         }
+
         seller.setFirstName(request.getFirstName());
         seller.setLastName(request.getLastName());
         seller.setStatus(request.getStatus());
@@ -120,31 +157,37 @@ public class CompanyServiceImpl implements CompanyService {
         return seller;
     }
 
+    // --- MODIFIED ---
     @Override
     @Transactional
     public User deleteSeller(UUID sellerUuid, UserDetails adminDetails) {
-        User adminUser = (User) adminDetails;
+        // --- SECURITY CHECK ---
+        Company adminCompany = getActiveCompanyForAdmin(adminDetails);
+        User adminUser = (User) adminDetails; // We still need the user object
+
         User seller = userRepo.findByUuid(sellerUuid)
                 .orElseThrow(() -> new IllegalStateException("Seller not found."));
-        if (seller.getCompanyId() == null || !seller.getCompanyId().equals(adminUser.getCompanyId())) {
+
+        // Check if seller belongs to the admin's company
+        if (seller.getCompanyId() == null || !seller.getCompanyId().equals(adminCompany.getId())) {
             throw new IllegalStateException("You do not have permission to modify this seller.");
         }
         if (seller.getId().equals(adminUser.getId())) {
             throw new IllegalStateException("Admin cannot delete themselves.");
         }
+
         userRepo.deleteById(seller.getId());
         return seller;
     }
 
 
-    // --- THIS METHOD IS 100% CORRECT AND DOES NOT NEED TO CHANGE ---
+    // --- MODIFIED ---
     @Override
     @Transactional
     public Company updateCompanyProfile(UpdateCompanyRequest request, MultipartFile logoFile, UserDetails adminDetails) {
-        User adminUser = (User) adminDetails;
-
-        Company company = companyRepo.findById(adminUser.getCompanyId())
-                .orElseThrow(() -> new IllegalStateException("Admin is not associated with a valid company."));
+        // --- SECURITY CHECK ---
+        Company company = getActiveCompanyForAdmin(adminDetails);
+        // User adminUser = (User) adminDetails; // Not needed here
 
         // This block correctly handles a null or empty file
         if (logoFile != null && !logoFile.isEmpty()) {
