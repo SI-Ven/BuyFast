@@ -409,40 +409,95 @@ ALTER TABLE company ADD CONSTRAINT fk_company_created_by FOREIGN KEY (created_by
 
 
 -- =======================================================
--- 5️⃣ PRODUCT TABLE
+-- 5️⃣ PRODUCT TABLE (MODIFIED)
 -- =======================================================
 CREATE TABLE product (
-                         id BIGSERIAL PRIMARY KEY, -- Internal ID
-                         product_uuid UUID NOT NULL UNIQUE, -- External ID
+                         id BIGSERIAL PRIMARY KEY,
+                         product_uuid UUID NOT NULL UNIQUE,
                          product_name VARCHAR(255) NOT NULL,
-                         company_id BIGINT NOT NULL, -- FK uses internal ID
-                         seller_id BIGINT NOT NULL, -- FK uses internal ID
-                         category_id BIGINT NOT NULL, -- FK uses internal ID
+                         company_id BIGINT, -- Stays nullable
+                         seller_id BIGINT NOT NULL,
+                         category_id BIGINT NOT NULL,
                          description TEXT NOT NULL,
-                         price DECIMAL(10,2) NOT NULL,
-                         stock_quantity INT NOT NULL,
                          is_active BOOLEAN DEFAULT TRUE,
                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    -- REMOVED: price DECIMAL(10,2) NOT NULL,
+    -- REMOVED: stock_quantity INT NOT NULL,
                          CONSTRAINT fk_product_company FOREIGN KEY (company_id) REFERENCES company(id),
                          CONSTRAINT fk_product_seller FOREIGN KEY (seller_id) REFERENCES users(id),
                          CONSTRAINT fk_product_category FOREIGN KEY (category_id) REFERENCES category(id)
 );
 
 -- =======================================================
--- 6️⃣ PRODUCT IMAGE TABLE
+-- NEW: PRODUCT OPTION TABLE (e.g., "Size", "Color")
+-- =======================================================
+CREATE TABLE product_option (
+                                id BIGSERIAL PRIMARY KEY,
+                                option_uuid UUID NOT NULL UNIQUE,
+                                product_id BIGINT NOT NULL,
+                                option_name VARCHAR(100) NOT NULL,
+                                CONSTRAINT fk_option_product FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE CASCADE,
+                                UNIQUE(product_id, option_name) -- A product can't have "Size" twice
+);
+
+-- =======================================================
+-- NEW: PRODUCT OPTION VALUE TABLE (e.g., "Small", "Red")
+-- =======================================================
+CREATE TABLE product_option_value (
+                                      id BIGSERIAL PRIMARY KEY,
+                                      value_uuid UUID NOT NULL UNIQUE,
+                                      option_id BIGINT NOT NULL,
+                                      value_name VARCHAR(100) NOT NULL,
+                                      CONSTRAINT fk_value_option FOREIGN KEY (option_id) REFERENCES product_option(id) ON DELETE CASCADE,
+                                      UNIQUE(option_id, value_name) -- An option can't have "Red" twice
+);
+
+-- =======================================================
+-- NEW: PRODUCT VARIANT TABLE (The SKU: e.g., "Small-Red-Shirt")
+-- =======================================================
+CREATE TABLE product_variant (
+                                 id BIGSERIAL PRIMARY KEY,
+                                 variant_uuid UUID NOT NULL UNIQUE,
+                                 product_id BIGINT NOT NULL,
+                                 sku VARCHAR(255) UNIQUE, -- Stock Keeping Unit
+                                 price DECIMAL(10,2) NOT NULL,
+                                 stock_quantity INT NOT NULL,
+                                 is_active BOOLEAN DEFAULT TRUE,
+                                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                 CONSTRAINT fk_variant_product FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE CASCADE
+);
+
+-- =======================================================
+-- NEW: PRODUCT VARIANT VALUES JUNCTION TABLE
+-- (Links a Variant to its values)
+-- =======================================================
+CREATE TABLE product_variant_values (
+                                        variant_id BIGINT NOT NULL,
+                                        value_id BIGINT NOT NULL,
+                                        CONSTRAINT fk_link_variant FOREIGN KEY (variant_id) REFERENCES product_variant(id) ON DELETE CASCADE,
+                                        CONSTRAINT fk_link_value FOREIGN KEY (value_id) REFERENCES product_option_value(id) ON DELETE CASCADE,
+                                        PRIMARY KEY (variant_id, value_id) -- Composite key
+);
+
+
+-- =======================================================
+-- 6️⃣ PRODUCT IMAGE TABLE (MODIFIED)
 -- =======================================================
 CREATE TABLE product_image (
-                               id BIGSERIAL PRIMARY KEY, -- Internal ID
-                               image_uuid UUID NOT NULL UNIQUE, -- External ID
-                               product_id BIGINT NOT NULL, -- FK uses internal ID
+                               id BIGSERIAL PRIMARY KEY,
+                               image_uuid UUID NOT NULL UNIQUE,
+                               product_id BIGINT NOT NULL,
                                image_url VARCHAR(512) UNIQUE NOT NULL,
                                is_main BOOLEAN DEFAULT FALSE,
                                sort_order INT,
                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                               CONSTRAINT fk_image_product FOREIGN KEY (product_id) REFERENCES product(id)
-                                   ON DELETE CASCADE
+    -- NEW: Allow linking an image to a specific variant
+                               variant_id BIGINT,
+                               CONSTRAINT fk_image_product FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE CASCADE,
+                               CONSTRAINT fk_image_variant FOREIGN KEY (variant_id) REFERENCES product_variant(id) ON DELETE SET NULL
 );
 
+-- ... (rest of Schema.sql is unchanged) ...
 -- =======================================================
 -- 7️⃣ VERIFY TABLE
 -- =======================================================

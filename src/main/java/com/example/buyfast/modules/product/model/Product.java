@@ -1,14 +1,10 @@
 package com.example.buyfast.modules.product.model;
 
 import lombok.Data;
-import java.math.BigDecimal;
+// import java.math.BigDecimal; // <-- REMOVED
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-/**
- * Model class for the 'product' table.
- * Based on your Schema.sql
- */
 @Data
 public class Product {
     private Long id;
@@ -18,8 +14,8 @@ public class Product {
     private Long sellerId;
     private Long categoryId;
     private String description;
-    private BigDecimal price;
-    private int stockQuantity;
-    private boolean isActive; // Corresponds to is_active in the DB
+    // REMOVED: private BigDecimal price;
+    // REMOVED: private int stockQuantity;
+    private boolean isActive;
     private LocalDateTime createdAt;
 }
