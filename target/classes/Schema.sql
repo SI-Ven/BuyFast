@@ -366,6 +366,7 @@ CREATE TABLE company (
                          max_sellers INT DEFAULT 3 -- For seller limit
 );
 
+drop table users cascade ;
 -- =======================================================
 -- 4️⃣ USERS TABLE
 -- =======================================================
@@ -376,33 +377,118 @@ CREATE TABLE users (
                        id BIGSERIAL PRIMARY KEY, -- Internal ID
                        user_uuid UUID NOT NULL UNIQUE, -- External ID
 
-    -- Profile fields
-                       first_name VARCHAR(100),
-                       last_name VARCHAR(100),
-                       user_name VARCHAR(100),
-                       user_profile VARCHAR(255),
-                       dob DATE,
-                       address TEXT,
-
     -- Auth fields
                        email VARCHAR(255) UNIQUE NOT NULL,
                        user_password TEXT NOT NULL,
-                       role VARCHAR(50) NOT NULL DEFAULT 'buyer',  -- 'admin_platform', 'admin_company', 'seller_company', 'buyer'
                        company_id BIGINT, -- FK uses internal ID
-                       status VARCHAR(20) NOT NULL DEFAULT 'active',
+                       status VARCHAR(20) NOT NULL DEFAULT 'active', -- 'pending', 'active', 'banned'
                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                        last_login TIMESTAMP,
-
-    -- --- NEW FIELDS ---
-                       phone_number VARCHAR(20) UNIQUE, -- Added for phone number
-                       phone_verified BOOLEAN DEFAULT FALSE, -- Added for phone verification
-                       verified BOOLEAN DEFAULT FALSE, -- Added for ID card verification
-    -- --- END NEW FIELDS ---
+                       phone_number VARCHAR(20) UNIQUE,
+                       phone_verified BOOLEAN DEFAULT FALSE,
+                       verified BOOLEAN DEFAULT FALSE, -- For ID card verification
 
                        CONSTRAINT fk_user_company FOREIGN KEY (company_id) REFERENCES company(id)
                            ON DELETE SET NULL
 );
-drop table users cascade ;
+
+CREATE TABLE user_profile (
+                              id BIGSERIAL PRIMARY KEY,
+                              user_id BIGINT NOT NULL UNIQUE, -- 1-to-1 link to users table
+                              first_name VARCHAR(100),
+                              last_name VARCHAR(100),
+                              user_name VARCHAR(100),
+                              user_profile VARCHAR(255), -- Avatar URL
+                              dob DATE,
+                              address TEXT,
+                              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                              CONSTRAINT fk_profile_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE role (
+                      id BIGSERIAL PRIMARY KEY,
+                      role_uuid UUID NOT NULL UNIQUE,
+                      role_name VARCHAR(100) UNIQUE NOT NULL, -- e.g., 'Platform Admin', 'Company Admin', 'Seller', 'Buyer'
+                      description TEXT,
+    -- 'platform' roles are managed by you, 'company' roles are managed by Company Admins
+                      scope VARCHAR(20) NOT NULL DEFAULT 'platform' CHECK (scope IN ('platform', 'company')),
+                      company_id BIGINT, -- NULL for 'platform' roles, set for 'company' roles
+                      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                      CONSTRAINT fk_role_company FOREIGN KEY (company_id) REFERENCES company(id) ON DELETE CASCADE
+);
+CREATE TABLE permission (
+                            id BIGSERIAL PRIMARY KEY,
+                            permission_uuid UUID NOT NULL UNIQUE,
+    -- e.g., 'CREATE_PRODUCT', 'EDIT_PRODUCT', 'DELETE_COMPANY', 'VIEW_FINANCE_AUDIT'
+                            permission_name VARCHAR(100) UNIQUE NOT NULL,
+                            description TEXT,
+    -- 'Product', 'User', 'Finance' - for grouping in an admin UI
+                            resource_group VARCHAR(50),
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE role_permission (
+                                 role_id BIGINT NOT NULL,
+                                 permission_id BIGINT NOT NULL,
+                                 CONSTRAINT fk_roleperm_role FOREIGN KEY (role_id) REFERENCES role(id) ON DELETE CASCADE,
+                                 CONSTRAINT fk_roleperm_permission FOREIGN KEY (permission_id) REFERENCES permission(id) ON DELETE CASCADE,
+                                 PRIMARY KEY (role_id, permission_id) -- Composite key
+);
+
+CREATE TABLE user_role (
+                           user_id BIGINT NOT NULL,
+                           role_id BIGINT NOT NULL,
+                           CONSTRAINT fk_userrole_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                           CONSTRAINT fk_userrole_role FOREIGN KEY (role_id) REFERENCES role(id) ON DELETE CASCADE,
+                           PRIMARY KEY (user_id, role_id) -- Composite key
+);
+
+-- (Tracks all important actions for security and compliance)
+-- =======================================================
+CREATE TABLE audit_log (
+                           id BIGSERIAL PRIMARY KEY,
+                           user_id BIGINT, -- The user who performed the action
+                           user_uuid UUID, -- The user's external ID
+                           action VARCHAR(100) NOT NULL, -- e.g., 'LOGIN', 'CREATE_PRODUCT', 'UPDATE_USER_STATUS'
+                           target_type VARCHAR(50), -- e.g., 'Product', 'User', 'Company'
+                           target_id UUID, -- The UUID of the object that was changed
+                           details JSONB, -- Can store 'before' and 'after' state
+                           ip_address VARCHAR(50),
+                           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                           CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- 24 USER INVITATION TABLE (NEW)
+-- (Allows company admins to invite new users to their company)
+-- =======================================================
+CREATE TABLE user_invitation (
+                                 id BIGSERIAL PRIMARY KEY,
+                                 invitation_uuid UUID NOT NULL UNIQUE, -- Used in the invitation link
+                                 email VARCHAR(255) NOT NULL,
+                                 company_id BIGINT NOT NULL,
+                                 role_id BIGINT NOT NULL, -- The role the user will get
+                                 invited_by_user_id BIGINT NOT NULL,
+                                 status VARCHAR(20) NOT NULL DEFAULT 'pending', -- 'pending', 'accepted', 'expired'
+                                 expires_at TIMESTAMP NOT NULL,
+                                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                 CONSTRAINT fk_invite_company FOREIGN KEY (company_id) REFERENCES company(id) ON DELETE CASCADE,
+                                 CONSTRAINT fk_invite_role FOREIGN KEY (role_id) REFERENCES role(id),
+                                 CONSTRAINT fk_invite_user FOREIGN KEY (invited_by_user_id) REFERENCES users(id)
+);
+
+-- 25 COMPANY SETTINGS TABLE (NEW)
+-- (A key-value store for company-specific settings)
+-- =======================================================
+CREATE TABLE company_settings (
+                                  id BIGSERIAL PRIMARY KEY,
+                                  company_id BIGINT NOT NULL,
+                                  setting_name VARCHAR(100) NOT NULL,
+                                  setting_value TEXT,
+                                  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                  CONSTRAINT fk_settings_company FOREIGN KEY (company_id) REFERENCES company(id) ON DELETE CASCADE,
+                                  UNIQUE(company_id, setting_name) -- Each company can only have one value for each setting
+);
 
 -- Add the foreign key from company to users (after users table is created)
 ALTER TABLE company ADD CONSTRAINT fk_company_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
