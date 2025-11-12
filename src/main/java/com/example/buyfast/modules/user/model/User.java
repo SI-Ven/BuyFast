@@ -1,6 +1,8 @@
 package com.example.buyfast.modules.user.model;
 
 import com.example.buyfast.modules.auth.model.Role;
+// --- NEW IMPORT ---
+import com.example.buyfast.modules.user.model.UserProfile;
 import lombok.Data;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -30,18 +32,16 @@ public class User implements UserDetails {
     private Timestamp lastLogin;
 
     // --- REMOVED PROFILE FIELDS (Moved to UserProfile) ---
-    // private String firstName;
-    // private String lastName;
-    // private String userName;
-    // private String userProfile;
-    // private Date dob;
-    // private String address;
+    // (This was correct)
 
     // --- REMOVED 'role' string ---
-    // private String role;
+    // (This was correct)
 
     // --- NEW RELATIONSHIPS (Populated by MyBatis) ---
     private Set<Role> roles = new HashSet<>();
+
+    // --- NEW RELATIONSHIP (Populated by MyBatis) ---
+    private UserProfile userProfile; // <-- ADDED THIS
 
     // --- UserDetails METHODS (CRITICAL UPDATE) ---
 
@@ -52,6 +52,7 @@ public class User implements UserDetails {
         // Spring Security will check these with .hasAuthority()
         return roles.stream()
                 .flatMap(role -> role.getPermissions().stream())
+                // --- THIS LINE IS NOW FIXED ---
                 .map(permission -> new SimpleGrantedAuthority(permission.getPermissionName()))
                 .collect(Collectors.toList());
     }

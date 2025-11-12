@@ -27,14 +27,14 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final UserRepo userRepo; // <-- Your MyBatis Mapper
+    private final UserRepo userRepo;
     private final JwtAuthenticationFilter jwtAuthFilter;
 
     @Bean
     public UserDetailsService userDetailsService() {
         // This is the new UserDetailsService.
         // It uses your MyBatis findByEmail method, which returns a User
-        // object fully populated with roles and permissions (thanks to UserMapper.xml).
+        // object fully populated with roles, permissions, AND profile.
         return email -> userRepo.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
     }
@@ -67,33 +67,34 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/auth/**",
                                 "/api/v1/categories/**",
-                                "/v3/api-docs/**",      // Allow Swagger
-                                "/swagger-ui/**"       // Allow Swagger
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**"
                         ).permitAll()
 
                         // --- PERMISSION-BASED ENDPOINTS (THE BIG CHANGE) ---
 
                         // --- SUPER ADMIN (PLATFORM) ENDPOINTS ---
-                        // OLD: .requestMatchers(HttpMethod.POST, "/api/v1/verify/approve/**", "/api/v1/verify/reject/**").hasAuthority("admin_platform")
                         .requestMatchers(HttpMethod.POST, "/api/v1/verify/approve/**", "/api/v1/verify/reject/**")
-                        .hasAuthority("APPROVE_VERIFICATION") // <-- Example Permission
+                        .hasAuthority("APPROVE_VERIFICATION")
 
-                        // OLD: .requestMatchers("/api/v1/admin/**").hasAuthority("admin_platform")
                         .requestMatchers("/api/v1/admin/**")
-                        .hasAuthority("VIEW_ADMIN_DASHBOARD") // <-- Example Permission
+                        .hasAuthority("VIEW_ADMIN_DASHBOARD")
 
                         // --- COMPANY ADMIN ENDPOINTS ---
-                        // OLD: .requestMatchers("/api/v1/company-admin/**").hasAuthority("admin_company")
                         .requestMatchers("/api/v1/company-admin/**")
-                        .hasAuthority("MANAGE_COMPANY_SELLERS") // <-- Example Permission
+                        .hasAuthority("MANAGE_COMPANY_SELLERS")
 
                         // --- AUTHENTICATED USER ENDPOINTS ---
-                        // (These can stay as .authenticated() if all users can do them)
                         .requestMatchers(HttpMethod.POST, "/api/v1/company")
                         .authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/user/become-seller", "/api/v1/verify/request-user")
                         .authenticated()
-                        .requestMatchers("/api/v1/users/profile/**") // Profile endpoints
+
+                        // --- MODIFIED & EXPANDED PROFILE ENDPOINTS ---
+                        .requestMatchers(
+                                "/api/v1/user/profile/**", // Catches all /profile endpoints
+                                "/api/v1/user/phone/**"    // Catches /phone/send-otp and /phone/verify-otp
+                        )
                         .authenticated()
 
                         // --- DEFAULT: All other requests must be authenticated ---

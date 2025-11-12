@@ -15,4 +15,5 @@ public interface UserService {
     void sendPhoneVerificationOtp(UserDetails userDetails);
 
     User verifyPhone(String otpCode, UserDetails userDetails);
+    void deleteUser(UserDetails userDetails);
 }

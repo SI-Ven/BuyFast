@@ -2,15 +2,20 @@ package com.example.buyfast.modules.user.repository;
 
 import com.example.buyfast.modules.user.model.UserProfile;
 import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param;
 import java.util.Optional;
 
+/**
+ * NEW REPOSITORY INTERFACE
+ * Required to correctly create, update, and delete profile data.
+ */
 @Mapper
 public interface UserProfileRepo {
 
-    void insertProfile(UserProfile userProfile);
+    Optional<UserProfile> findByUserId(Long userId);
 
-    Optional<UserProfile> findByUserId(@Param("userId") Long userId);
+    void create(UserProfile userProfile);
 
-    void updateProfile(UserProfile userProfile);
+    void update(UserProfile userProfile);
+
+    void deleteByUserId(Long userId);
 }

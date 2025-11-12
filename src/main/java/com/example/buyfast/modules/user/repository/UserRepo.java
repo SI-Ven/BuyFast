@@ -82,4 +82,6 @@ public interface UserRepo {
      */
     @Update("UPDATE users SET status = #{status} WHERE user_uuid = #{uuid}")
     void updateUserStatusByUuid(@Param("uuid") UUID uuid, @Param("status") String status);
+
+    void deleteById(Long id);
 }
