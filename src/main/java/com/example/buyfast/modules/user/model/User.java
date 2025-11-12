@@ -1,78 +1,84 @@
 package com.example.buyfast.modules.user.model;
 
+import com.example.buyfast.modules.auth.model.Role;
 import lombok.Data;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.sql.Timestamp;
 import java.util.Collection;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Data
 public class User implements UserDetails {
 
-    // Fields from your Schema.sql
+    // --- Fields from 'users' table (Auth & Status) ---
     private Long id;
     private UUID userUuid;
-    private String firstName;
-    private String lastName;
-    private String userName;
-    private String userProfile;
-    private LocalDate dob;
-    private String address;
     private String email;
-    private String userPassword; // This is the hashed password
+    private String userPassword; // Mapped to user_password in DB
     private String phoneNumber;
-    private boolean phoneVerified;
-    private boolean verified;
-    private String role;
-    private Long companyId; // <-- THIS IS THE NEW FIELD THAT WAS MISSING
-    private String status; // 'pending', 'active', 'banned', etc.
-    private LocalDateTime createdAt;
-    private LocalDateTime lastLogin;
+    private Boolean phoneVerified;
+    private Boolean verified;
+    private String status;
+    private Long companyId;
+    private Timestamp createdAt;
+    private Timestamp lastLogin;
 
-    // --- UserDetails Implementation ---
+    // --- REMOVED PROFILE FIELDS (Moved to UserProfile) ---
+    // private String firstName;
+    // private String lastName;
+    // private String userName;
+    // private String userProfile;
+    // private Date dob;
+    // private String address;
+
+    // --- REMOVED 'role' string ---
+    // private String role;
+
+    // --- NEW RELATIONSHIPS (Populated by MyBatis) ---
+    private Set<Role> roles = new HashSet<>();
+
+    // --- UserDetails METHODS (CRITICAL UPDATE) ---
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        // Use the 'role' field for permissions
-        return List.of(new SimpleGrantedAuthority(role));
+        // This is the most important change.
+        // We now return a list of PERMISSIONS, not roles.
+        // Spring Security will check these with .hasAuthority()
+        return roles.stream()
+                .flatMap(role -> role.getPermissions().stream())
+                .map(permission -> new SimpleGrantedAuthority(permission.getPermissionName()))
+                .collect(Collectors.toList());
     }
 
     @Override
     public String getPassword() {
-        // Field from DB containing the hashed password
-        return userPassword;
+        return this.userPassword;
     }
 
     @Override
     public String getUsername() {
-        // We use email as the unique username
-        return email;
+        return this.email; // Use email for username
     }
 
     @Override
-    public boolean isAccountNonExpired() {
-        return true;
-    }
+    public boolean isAccountNonExpired() { return true; }
 
     @Override
     public boolean isAccountNonLocked() {
-        return true;
+        return !"banned".equals(this.status);
     }
 
     @Override
-    public boolean isCredentialsNonExpired() {
-        return true;
-    }
+    public boolean isCredentialsNonExpired() { return true; }
 
     @Override
     public boolean isEnabled() {
-        // This is the key: Spring Security will check this.
-        // If status is not 'active', login will fail with DisabledException.
-        return "active".equals(status);
+        return "active".equals(this.status);
     }
 }

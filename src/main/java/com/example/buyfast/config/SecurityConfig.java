@@ -27,60 +27,16 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final UserRepo userRepo;
+    private final UserRepo userRepo; // <-- Your MyBatis Mapper
+    private final JwtAuthenticationFilter jwtAuthFilter;
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                                   AuthenticationProvider authenticationProvider,
-                                                   JwtAuthenticationFilter jwtAuthFilter) throws Exception {
-        http
-                .csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(auth -> auth
-                        // Allow all public endpoints
-                        .requestMatchers("/api/v1/auth/**",
-                                "/api/v1/categories/**",
-                                "/v3/api-docs/**",
-                                "/swagger-ui/**")
-                        .permitAll()
-
-                        // --- SUPER ADMIN ENDPOINTS ---
-                        // Only PLATFORM admins can approve/reject ANY verification request
-                        .requestMatchers(HttpMethod.POST, "/api/v1/verify/approve/**", "/api/v1/verify/reject/**")
-                        .hasAuthority("admin_platform")
-
-                        // --- NEW RULE: Secure the new admin controller ---
-                        .requestMatchers("/api/v1/admin/**")
-                        .hasAuthority("admin_platform")
-
-                        // --- COMPANY ADMIN ENDPOINTS ---
-                        .requestMatchers("/api/v1/company-admin/**")
-                        .hasAuthority("admin_company")
-
-                        // --- AUTHENTICATED USER ENDPOINTS ---
-                        // Any authenticated user can create a company (it will be pending)
-                        .requestMatchers(HttpMethod.POST, "/api/v1/company")
-                        .authenticated()
-                        // Any authenticated user can request to become a seller or verify their ID
-                        .requestMatchers(HttpMethod.POST, "/api/v1/user/become-seller", "/api/v1/verify/request-user")
-                        .authenticated()
-
-
-                        // All other requests must be authenticated
-                        .anyRequest()
-                        .authenticated()
-                )
-                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authenticationProvider(authenticationProvider)
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
-
-        return http.build();
-    }
-
-    // ... (rest of the file is unchanged) ...
     @Bean
     public UserDetailsService userDetailsService() {
-        return username -> userRepo.findByEmail(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + username));
+        // This is the new UserDetailsService.
+        // It uses your MyBatis findByEmail method, which returns a User
+        // object fully populated with roles and permissions (thanks to UserMapper.xml).
+        return email -> userRepo.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
     }
 
     @Bean
@@ -99,5 +55,57 @@ public class SecurityConfig {
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth
+
+                        // --- PUBLIC ENDPOINTS (No change needed) ---
+                        .requestMatchers(
+                                "/api/v1/auth/**",
+                                "/api/v1/categories/**",
+                                "/v3/api-docs/**",      // Allow Swagger
+                                "/swagger-ui/**"       // Allow Swagger
+                        ).permitAll()
+
+                        // --- PERMISSION-BASED ENDPOINTS (THE BIG CHANGE) ---
+
+                        // --- SUPER ADMIN (PLATFORM) ENDPOINTS ---
+                        // OLD: .requestMatchers(HttpMethod.POST, "/api/v1/verify/approve/**", "/api/v1/verify/reject/**").hasAuthority("admin_platform")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/verify/approve/**", "/api/v1/verify/reject/**")
+                        .hasAuthority("APPROVE_VERIFICATION") // <-- Example Permission
+
+                        // OLD: .requestMatchers("/api/v1/admin/**").hasAuthority("admin_platform")
+                        .requestMatchers("/api/v1/admin/**")
+                        .hasAuthority("VIEW_ADMIN_DASHBOARD") // <-- Example Permission
+
+                        // --- COMPANY ADMIN ENDPOINTS ---
+                        // OLD: .requestMatchers("/api/v1/company-admin/**").hasAuthority("admin_company")
+                        .requestMatchers("/api/v1/company-admin/**")
+                        .hasAuthority("MANAGE_COMPANY_SELLERS") // <-- Example Permission
+
+                        // --- AUTHENTICATED USER ENDPOINTS ---
+                        // (These can stay as .authenticated() if all users can do them)
+                        .requestMatchers(HttpMethod.POST, "/api/v1/company")
+                        .authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/user/become-seller", "/api/v1/verify/request-user")
+                        .authenticated()
+                        .requestMatchers("/api/v1/users/profile/**") // Profile endpoints
+                        .authenticated()
+
+                        // --- DEFAULT: All other requests must be authenticated ---
+                        .anyRequest()
+                        .authenticated()
+                )
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+                .authenticationProvider(authenticationProvider())
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
     }
 }
