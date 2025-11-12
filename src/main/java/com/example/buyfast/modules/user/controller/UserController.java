@@ -38,7 +38,7 @@ public class UserController {
                                                                    @Valid @RequestBody UpdateProfileRequest request,
                                                                    @AuthenticationPrincipal UserDetails userDetails) {
 
-        UserProfile updatedProfile = userService.updateUserProfile(request, userDetails).getUserProfile();
+        UserProfile updatedProfile = userService.updateUserProfile(request, userDetails);
         return ResponseEntity.ok(ApiResponse.success("Profile updated successfully.", updatedProfile));
     }
 

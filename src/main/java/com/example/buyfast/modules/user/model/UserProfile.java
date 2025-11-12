@@ -1,7 +1,8 @@
 package com.example.buyfast.modules.user.model;
 
 import lombok.Data;
-import java.sql.Date;
+// import java.sql.Date; // <-- REMOVE THIS
+import java.time.LocalDate; // <-- ADD THIS
 import java.sql.Timestamp;
 
 @Data
@@ -12,7 +13,7 @@ public class UserProfile {
     private String lastName;
     private String userName;
     private String userProfile; // Avatar URL
-    private Date dob;
+    private LocalDate dob; // <-- CHANGE THIS
     private String address;
     private Timestamp createdAt;
     private Timestamp updatedAt;

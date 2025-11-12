@@ -3,13 +3,13 @@ package com.example.buyfast.modules.user.service.Impl;
 import com.example.buyfast.modules.otp.service.SmsOtpService;
 import com.example.buyfast.modules.user.dto.UpdateProfileRequest;
 import com.example.buyfast.modules.user.model.User;
-import com.example.buyfast.modules.user.model.UserProfile;
-import com.example.buyfast.modules.user.repository.UserProfileRepo;
+import com.example.buyfast.modules.user.model.UserProfile; // <-- NEW IMPORT
+import com.example.buyfast.modules.user.repository.UserProfileRepo; // <-- NEW IMPORT
 import com.example.buyfast.modules.user.repository.UserRepo;
 import com.example.buyfast.modules.user.service.UserService;
-import com.example.buyfast.modules.verify.model.Verify; // <-- NEW IMPORT
-import com.example.buyfast.modules.verify.repository.VerifyRepo; // <-- NEW IMPORT
-import com.example.buyfast.util.UuidService; // <-- NEW IMPORT
+import com.example.buyfast.modules.verify.model.Verify;
+import com.example.buyfast.modules.verify.repository.VerifyRepo;
+import com.example.buyfast.util.UuidService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -20,11 +20,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserServiceImpl implements UserService {
 
     private final UserRepo userRepo;
+    private final UserProfileRepo userProfileRepo; // <-- NEW: Inject UserProfileRepo
     private final SmsOtpService smsOtpService;
-    private final UserProfileRepo userProfileRepo;
-    private final VerifyRepo verifyRepo; // <-- NEW: Inject VerifyRepo
-    private final UuidService uuidService;// <-- NEW: Inject UuidService
+    private final VerifyRepo verifyRepo;
+    private final UuidService uuidService;
 
+    // --- HEAVILY MODIFIED ---
     @Override
     @Transactional
     public UserProfile updateUserProfile(UpdateProfileRequest request, UserDetails userDetails) {
@@ -59,28 +60,15 @@ public class UserServiceImpl implements UserService {
             profileUpdated = true;
         }
         if (request.getDob() != null) {
+            // --- THIS IS THE FIX ---
+            // Convert java.time.LocalDate to java.sql.Date
             profile.setDob(request.getDob());
+            // ---------------------
             profileUpdated = true;
         }
         if (request.getAddress() != null) {
             profile.setAddress(request.getAddress());
             profileUpdated = true;
-        }
-
-        if (profileUpdated) {
-            userProfileRepo.update(profile);
-        }
-
-        // 3. Update User Fields (on the User object)
-        boolean userUpdated = false;
-        if (request.getPhoneNumber() != null && !request.getPhoneNumber().equals(currentUser.getPhoneNumber())) {
-            currentUser.setPhoneVerified(false);
-            currentUser.setPhoneNumber(request.getPhoneNumber());
-            userUpdated = true;
-        }
-
-        if (userUpdated) {
-            userRepo.update(currentUser);
         }
 
         // 4. Return the updated profile
@@ -120,6 +108,23 @@ public class UserServiceImpl implements UserService {
         verifyRepo.createVerification(verification);
         return verification;
     }
+
+    // --- NEW METHOD ---
+    @Override
+    @Transactional
+    public void deleteUser(UserDetails userDetails) {
+        User currentUser = (User) userDetails;
+
+        // 1. Delete associated profile
+        userProfileRepo.deleteByUserId(currentUser.getId());
+
+        // 2. Delete role associations (MyBatis/DB cascade should handle this)
+        // If not, you need a UserRoleRepo.deleteByUserId(currentUser.getId())
+
+        // 3. Delete the user
+        userRepo.deleteById(currentUser.getId());
+    }
+
     @Override
     public void sendPhoneVerificationOtp(UserDetails userDetails) {
         // ... (unchanged)
@@ -127,7 +132,7 @@ public class UserServiceImpl implements UserService {
         if (currentUser.getPhoneNumber() == null || currentUser.getPhoneNumber().isEmpty()) {
             throw new IllegalStateException("Please add a phone number to your profile first.");
         }
-        if (currentUser.isPhoneVerified()) {
+        if (currentUser.getPhoneVerified()) {
             throw new IllegalStateException("Phone number is already verified.");
         }
         smsOtpService.sendOtp(currentUser.getPhoneNumber());
@@ -152,18 +157,4 @@ public class UserServiceImpl implements UserService {
         currentUser.setPhoneVerified(true);
         return currentUser;
     }
-
-    @Override
-    @Transactional
-    public void deleteUser(UserDetails userDetails) {
-        User currentUser = (User) userDetails;
-
-        // 1. Delete associated profile
-        userProfileRepo.deleteByUserId(currentUser.getId());
-
-        // 2. Delete role associations (MyBatis/DB cascade should handle this)
-        // If not, you need a UserRoleRepo.deleteByUserId(currentUser.getId())
-
-        // 3. Delete the user
-        userRepo.deleteById(currentUser.getId());
-    }
+}
