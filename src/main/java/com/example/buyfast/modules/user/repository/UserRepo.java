@@ -10,12 +10,21 @@ import java.util.UUID;
 @Mapper
 public interface UserRepo {
 
-    // ... (existing methods like save, findByEmail, updateUserStatus, etc. are unchanged) ...
-    @Insert("INSERT INTO users (user_uuid, first_name, last_name,user_name, email, user_password, role, status, created_at, company_id) " +
-            "VALUES (#{userUuid}, #{firstName}, #{lastName},#{userName}, #{email}, #{userPassword}, #{role}, #{status}, CURRENT_TIMESTAMP, #{companyId})")
+    /**
+     * MODIFIED: This query now only inserts data that is still on the
+     * User model. The 'role' column is also removed, as that logic
+     * will move to a new UserRoleRepo.
+     */
+    @Insert("INSERT INTO users (user_uuid, email, user_password, status, created_at, company_id) " +
+            "VALUES (#{userUuid}, #{email}, #{userPassword}, #{status}, CURRENT_TIMESTAMP, #{companyId})")
     @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
     void save(User user);
 
+    /**
+     * This method needs a <ResultMap> in an XML file to correctly
+     * populate the nested UserProfile and Set<Role> objects.
+     * The simple @Select will only populate the User object's flat fields.
+     */
     @Select("SELECT * FROM users WHERE email = #{email}")
     Optional<User> findByEmail(String email);
 
@@ -24,25 +33,18 @@ public interface UserRepo {
 
     @Update("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = #{id}")
     void updateLastLogin(Long id);
+
     @Select("SELECT * FROM users WHERE user_uuid = #{uuid}")
     Optional<User> findByUuid(UUID uuid);
 
     @Update("UPDATE users SET user_password = #{newPassword} WHERE email = #{email}")
     void updatePassword(String email, String newPassword);
 
-    @Update("UPDATE users SET " +
-            "first_name = #{firstName}, " +
-            "last_name = #{lastName}, " +
-            "user_name = #{userName}, " +
-            "user_profile = #{userProfile}, " +
-            "dob = #{dob}, " +
-            "address = #{address}, " +
-            "phone_number = #{phoneNumber} " +
-            "WHERE id = #{id}")
-    void updateProfile(User user);
+    // --- DELETED 'updateProfile' method ---
+    // This logic is now handled by UserProfileRepo.update()
 
-    @Update("UPDATE users SET role = #{role} WHERE id = #{id}")
-    void updateUserRole(@Param("id") Long id, @Param("role") String role);
+    // --- DELETED 'updateUserRole' method ---
+    // This logic must move to a new UserRoleRepo
 
     @Update("UPDATE users SET phone_verified = true WHERE id = #{id}")
     void setPhoneVerified(Long id);
@@ -50,39 +52,29 @@ public interface UserRepo {
     @Update("UPDATE users SET verified = #{isVerified} WHERE id = #{id}")
     void setVerifiedStatus(@Param("id") Long id, @Param("isVerified") boolean isVerified);
 
-    @Update("UPDATE users SET role = #{role}, company_id = #{companyId} WHERE id = #{userId}")
-    void updateUserRoleAndCompany(@Param("userId") Long userId, @Param("role") String role, @Param("companyId") Long companyId);
+    // --- DELETED 'updateUserRoleAndCompany' method ---
+    // This logic must be split. Role changes move to UserRoleRepo.
 
     @Update("UPDATE users SET company_id = #{companyId} WHERE id = #{userId}")
     void updateUserCompanyId(@Param("userId") Long userId, @Param("companyId") Long companyId);
 
-    @Select("SELECT COUNT(*) FROM users WHERE company_id = #{companyId} AND role = 'seller_company'")
-    int countSellersByCompanyId(Long companyId);
+    // --- DELETED 'countSellersByCompanyId' method ---
+    // This logic must be refactored to query the new user_roles table
 
-    @Select("SELECT * FROM users WHERE company_id = #{companyId} AND role = 'seller_company'")
-    List<User> findSellersByCompanyId(Long companyId);
+    // --- DELETED 'findSellersByCompanyId' method ---
+    // This logic must be refactored to query the new user_roles table
 
     @Delete("DELETE FROM users WHERE id = #{userId}")
     void deleteById(Long userId);
 
-    @Update("UPDATE users SET first_name = #{firstName}, last_name = #{lastName}, status = #{status} WHERE id = #{id}")
-    void updateSellerProfile(@Param("id") Long id, @Param("firstName") String firstName, @Param("lastName") String lastName, @Param("status") String status);
+    // --- DELETED 'updateSellerProfile' method ---
+    // This logic is now handled by UserProfileRepo.update()
 
     // --- NEW METHODS FOR SUPER ADMIN ---
 
-    /**
-     * (Admin) Gets a list of all users in the system.
-     */
     @Select("SELECT * FROM users ORDER BY created_at DESC")
     List<User> findAllUsers();
 
-    /**
-     * (Admin) Updates a user's status by their public UUID.
-     * Used for banning, activating, etc.
-     */
     @Update("UPDATE users SET status = #{status} WHERE user_uuid = #{uuid}")
     void updateUserStatusByUuid(@Param("uuid") UUID uuid, @Param("status") String status);
-
-    // --- REMOVED DUPLICATE METHOD ---
-    // void deleteById(Long id);
 }

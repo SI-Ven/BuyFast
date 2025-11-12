@@ -5,6 +5,8 @@ import lombok.Data;
 
 @Data
 public class UpdateCompanyRequest {
+    @Size(min = 3, max = 255) // <-- Add validation for the name
+    private String companyName; // <-- ADD THIS LINE
 
     @Size(min = 10, max = 2000)
     private String description;
