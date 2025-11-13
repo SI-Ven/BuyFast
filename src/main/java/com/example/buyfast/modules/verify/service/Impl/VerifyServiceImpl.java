@@ -1,7 +1,9 @@
 package com.example.buyfast.modules.verify.service.Impl;
 
-import com.example.buyfast.modules.company.model.Company; // <-- NEW IMPORT
-import com.example.buyfast.modules.company.repository.CompanyRepo; // <-- NEW IMPORT
+import com.example.buyfast.modules.auth.model.Role; // <-- NEW IMPORT
+import com.example.buyfast.modules.auth.repository.RoleRepo; // <-- NEW IMPORT
+import com.example.buyfast.modules.company.model.Company;
+import com.example.buyfast.modules.company.repository.CompanyRepo;
 import com.example.buyfast.modules.storage.service.StorageService;
 import com.example.buyfast.modules.user.model.User;
 import com.example.buyfast.modules.user.repository.UserRepo;
@@ -25,7 +27,8 @@ public class VerifyServiceImpl implements VerifyService {
     private final UserRepo userRepo;
     private final UuidService uuidService;
     private final StorageService storageService;
-    private final CompanyRepo companyRepo; // <-- NEW: Inject CompanyRepo
+    private final CompanyRepo companyRepo;
+    private final RoleRepo roleRepo; // <-- NEW: Inject RoleRepo
 
     @Override
     @Transactional
@@ -52,7 +55,6 @@ public class VerifyServiceImpl implements VerifyService {
         return verification;
     }
 
-    // --- MODIFIED ---
     @Override
     @Transactional
     public Verify approveVerification(UUID verifyUuid, String remarks, UserDetails adminDetails) {
@@ -65,14 +67,23 @@ public class VerifyServiceImpl implements VerifyService {
                 User userToVerify = findUserByUuid(verification.getTargetId());
                 userRepo.setVerifiedStatus(userToVerify.getId(), true);
                 break;
+
             case "seller":
                 User userToPromote = findUserByUuid(verification.getTargetId());
-                userRepo.updateUserRole(userToPromote.getId(), "seller");
+
+                // --- FIXED: Use RoleRepo to assign the seller role ---
+                Role sellerRole = roleRepo.findByRoleName("seller")
+                        .orElseThrow(() -> new IllegalStateException("Role 'seller' not found in database."));
+
+                roleRepo.insertUserRole(userToPromote.getId(), sellerRole.getId());
+                // ----------------------------------------------------
                 break;
+
             case "company":
                 Company companyToApprove = findCompanyByUuid(verification.getTargetId());
                 companyRepo.updateCompanyStatus(companyToApprove.getId(), "active");
                 break;
+
             default:
                 throw new IllegalStateException("Unknown verification target type: " + verification.getTargetType());
         }
@@ -86,7 +97,6 @@ public class VerifyServiceImpl implements VerifyService {
         return verification;
     }
 
-    // --- MODIFIED ---
     @Override
     @Transactional
     public Verify rejectVerification(UUID verifyUuid, String remarks, UserDetails adminDetails) {

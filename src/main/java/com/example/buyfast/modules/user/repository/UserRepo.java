@@ -10,21 +10,11 @@ import java.util.UUID;
 @Mapper
 public interface UserRepo {
 
-    /**
-     * MODIFIED: This query now only inserts data that is still on the
-     * User model. The 'role' column is also removed, as that logic
-     * will move to a new UserRoleRepo.
-     */
     @Insert("INSERT INTO users (user_uuid, email, user_password, status, created_at, company_id) " +
             "VALUES (#{userUuid}, #{email}, #{userPassword}, #{status}, CURRENT_TIMESTAMP, #{companyId})")
     @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
     void save(User user);
 
-    /**
-     * This method needs a <ResultMap> in an XML file to correctly
-     * populate the nested UserProfile and Set<Role> objects.
-     * The simple @Select will only populate the User object's flat fields.
-     */
     @Select("SELECT * FROM users WHERE email = #{email}")
     Optional<User> findByEmail(String email);
 
@@ -40,37 +30,37 @@ public interface UserRepo {
     @Update("UPDATE users SET user_password = #{newPassword} WHERE email = #{email}")
     void updatePassword(String email, String newPassword);
 
-    // --- DELETED 'updateProfile' method ---
-    // This logic is now handled by UserProfileRepo.update()
-
-    // --- DELETED 'updateUserRole' method ---
-    // This logic must move to a new UserRoleRepo
-
     @Update("UPDATE users SET phone_verified = true WHERE id = #{id}")
     void setPhoneVerified(Long id);
 
     @Update("UPDATE users SET verified = #{isVerified} WHERE id = #{id}")
     void setVerifiedStatus(@Param("id") Long id, @Param("isVerified") boolean isVerified);
 
-    // --- DELETED 'updateUserRoleAndCompany' method ---
-    // This logic must be split. Role changes move to UserRoleRepo.
-
     @Update("UPDATE users SET company_id = #{companyId} WHERE id = #{userId}")
     void updateUserCompanyId(@Param("userId") Long userId, @Param("companyId") Long companyId);
-
-    // --- DELETED 'countSellersByCompanyId' method ---
-    // This logic must be refactored to query the new user_roles table
-
-    // --- DELETED 'findSellersByCompanyId' method ---
-    // This logic must be refactored to query the new user_roles table
 
     @Delete("DELETE FROM users WHERE id = #{userId}")
     void deleteById(Long userId);
 
-    // --- DELETED 'updateSellerProfile' method ---
-    // This logic is now handled by UserProfileRepo.update()
+    // --- FIXED: Re-implemented methods using JOINs for the new schema ---
 
-    // --- NEW METHODS FOR SUPER ADMIN ---
+    /**
+     * Finds all users with the specific 'seller_company' role who belong to the given company.
+     * Note: Ensure your MyBatis XML mapper is set up to map the UserProfile if needed.
+     */
+    @Select("SELECT u.* FROM users u " +
+            "JOIN user_role ur ON u.id = ur.user_id " +
+            "JOIN role r ON ur.role_id = r.id " +
+            "WHERE u.company_id = #{companyId} AND r.role_name = 'seller_company'")
+    List<User> findSellersByCompanyId(Long companyId);
+
+    @Select("SELECT COUNT(u.id) FROM users u " +
+            "JOIN user_role ur ON u.id = ur.user_id " +
+            "JOIN role r ON ur.role_id = r.id " +
+            "WHERE u.company_id = #{companyId} AND r.role_name = 'seller_company'")
+    int countSellersByCompanyId(Long companyId);
+
+    // --- SUPER ADMIN METHODS ---
 
     @Select("SELECT * FROM users ORDER BY created_at DESC")
     List<User> findAllUsers();
