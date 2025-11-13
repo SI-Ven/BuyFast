@@ -1,8 +1,7 @@
 package com.example.buyfast.modules.user.model;
 
 import com.example.buyfast.modules.auth.model.Role;
-// --- NEW IMPORT ---
-import com.example.buyfast.modules.user.model.UserProfile;
+import com.fasterxml.jackson.annotation.JsonIgnore; // <-- IMPORT THIS
 import lombok.Data;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -18,11 +17,13 @@ import java.util.stream.Collectors;
 @Data
 public class User implements UserDetails {
 
-    // --- Fields from 'users' table (Auth & Status) ---
     private Long id;
     private UUID userUuid;
     private String email;
-    private String userPassword; // Mapped to user_password in DB
+
+    @JsonIgnore // <-- Hides "userPassword" from JSON
+    private String userPassword;
+
     private String phoneNumber;
     private Boolean phoneVerified;
     private Boolean verified;
@@ -31,54 +32,47 @@ public class User implements UserDetails {
     private Timestamp createdAt;
     private Timestamp lastLogin;
 
-    // --- REMOVED PROFILE FIELDS (Moved to UserProfile) ---
-    // (This was correct)
-
-    // --- REMOVED 'role' string ---
-    // (This was correct)
-
-    // --- NEW RELATIONSHIPS (Populated by MyBatis) ---
     private Set<Role> roles = new HashSet<>();
+    private UserProfile userProfile;
 
-    // --- NEW RELATIONSHIP (Populated by MyBatis) ---
-    private UserProfile userProfile; // <-- ADDED THIS
-
-    // --- UserDetails METHODS (CRITICAL UPDATE) ---
+    // --- UserDetails METHODS ---
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        // This is the most important change.
-        // We now return a list of PERMISSIONS, not roles.
-        // Spring Security will check these with .hasAuthority()
         return roles.stream()
                 .flatMap(role -> role.getPermissions().stream())
-                // --- THIS LINE IS NOW FIXED ---
                 .map(permission -> new SimpleGrantedAuthority(permission.getPermissionName()))
                 .collect(Collectors.toList());
     }
 
     @Override
+    @JsonIgnore // <-- Hides "password" from JSON
     public String getPassword() {
         return this.userPassword;
     }
 
     @Override
+    @JsonIgnore // <-- Hides "username" (since you already have "email")
     public String getUsername() {
-        return this.email; // Use email for username
+        return this.email;
     }
 
     @Override
+    @JsonIgnore // <-- Hides "accountNonExpired"
     public boolean isAccountNonExpired() { return true; }
 
     @Override
+    @JsonIgnore // <-- Hides "accountNonLocked"
     public boolean isAccountNonLocked() {
         return !"banned".equals(this.status);
     }
 
     @Override
+    @JsonIgnore // <-- Hides "credentialsNonExpired"
     public boolean isCredentialsNonExpired() { return true; }
 
     @Override
+    @JsonIgnore // <-- Hides "enabled"
     public boolean isEnabled() {
         return "active".equals(this.status);
     }

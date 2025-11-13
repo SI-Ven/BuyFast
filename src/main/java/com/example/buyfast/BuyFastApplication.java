@@ -22,14 +22,15 @@ import org.springframework.context.annotation.Configuration;
         bearerFormat = "JWT",
         scheme = "bearer"
 )
-// --- MODIFIED: The 'product.repository' package now includes all new repos ---
+// --- FIXED: Added "com.example.buyfast.modules.auth.repository" to the scan list ---
 @MapperScan({
         "com.example.buyfast.modules.category.repository",
         "com.example.buyfast.modules.user.repository",
         "com.example.buyfast.modules.otp.repository",
         "com.example.buyfast.modules.verify.repository",
         "com.example.buyfast.modules.company.repository",
-        "com.example.buyfast.modules.product.repository" // This line covers all new repos
+        "com.example.buyfast.modules.product.repository",
+        "com.example.buyfast.modules.auth.repository" // <--- THIS WAS MISSING
 })
 public class BuyFastApplication {
 

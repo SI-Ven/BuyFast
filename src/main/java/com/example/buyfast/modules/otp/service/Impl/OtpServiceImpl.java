@@ -3,7 +3,7 @@ package com.example.buyfast.modules.otp.service.Impl;
 import com.example.buyfast.modules.otp.model.Otp;
 import com.example.buyfast.modules.otp.repository.OtpRepo;
 import com.example.buyfast.modules.otp.service.EmailService;
-import com.example.buyfast.modules.otp.service.OtpService; // <-- Import interface
+import com.example.buyfast.modules.otp.service.OtpService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,64 +14,64 @@ import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
-public class OtpServiceImpl implements OtpService { // <-- Implements interface
+public class OtpServiceImpl implements OtpService {
 
     private final OtpRepo otpRepo;
-    private final EmailService emailService; // <-- Injects EmailService interface
+    private final EmailService emailService;
 
     private String generateOtpCode() {
         return String.format("%06d", new Random().nextInt(900000) + 100000);
     }
 
-    @Override // <-- Add annotation
+    @Override
     @Transactional
     public void sendOtp(String email) {
         String otpCode = generateOtpCode();
+        System.out.println("GENERATING OTP for " + email + ": " + otpCode); // --- DEBUG LOG ---
+
         Otp otp = new Otp();
         otp.setEmail(email);
         otp.setOtpCode(otpCode);
         otp.setExpiresAt(LocalDateTime.now().plusMinutes(5));
 
-        // This will now be saved and committed
         otpRepo.save(otp);
 
         String subject = "Your BuyFast Verification Code";
         String body = "Your verification code is: " + otpCode + "\n" +
                 "It will expire in 5 minutes.";
 
-        // --- START OF FIX ---
         try {
-            // Attempt to send the email
             emailService.sendSimpleMessage(email, subject, body);
+            System.out.println("OTP Email sent successfully to " + email);
         } catch (Exception e) {
-            // If email fails, print the error but DO NOT throw the exception.
-            // This allows the @Transactional method to commit the database changes.
             System.err.println("Failed to send OTP email to " + email + ": " + e.getMessage());
-            // In a real application, you would add proper logging here
-            // e.g., log.error("Failed to send OTP email", e);
+            // We do NOT throw exception here, so the DB save persists even if email fails
         }
-        // --- END OF FIX ---
     }
 
-    @Override // <-- Add annotation
+    @Override
     @Transactional
     public boolean verifyOtp(String email, String otpCode) {
+        System.out.println("VERIFYING OTP for " + email + " with code " + otpCode); // --- DEBUG LOG ---
+
         Optional<Otp> otpOpt = otpRepo.findByEmailAndOtpCode(email, otpCode);
 
         if (otpOpt.isEmpty()) {
+            System.out.println("OTP Verification Failed: No matching record found.");
             return false;
         }
 
         Otp otp = otpOpt.get();
 
         if (otp.getExpiresAt().isBefore(LocalDateTime.now())) {
-            // OTP is expired, delete it
+            System.out.println("OTP Verification Failed: OTP expired at " + otp.getExpiresAt());
             otpRepo.deleteByEmail(email);
             return false;
         }
 
-        // OTP is valid, delete it so it can't be used again
-        otpRepo.deleteByEmail(email);
+        // OTP is valid
+        System.out.println("OTP Verification Success!");
+        otpRepo.deleteByEmail(email); // Consume the OTP so it can't be used again
         return true;
     }
 }
