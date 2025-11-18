@@ -26,11 +26,16 @@ public class OtpServiceImpl implements OtpService {
     @Override
     @Transactional
     public void sendOtp(String email) {
+        String normalizedEmail = email.toLowerCase().trim();
         String otpCode = generateOtpCode();
-        System.out.println("GENERATING OTP for " + email + ": " + otpCode); // --- DEBUG LOG ---
+
+        System.out.println("--- SENDING OTP ---");
+        System.out.println("Email: " + normalizedEmail);
+        System.out.println("Code: " + otpCode);
+        System.out.println("Time: " + LocalDateTime.now());
 
         Otp otp = new Otp();
-        otp.setEmail(email);
+        otp.setEmail(normalizedEmail);
         otp.setOtpCode(otpCode);
         otp.setExpiresAt(LocalDateTime.now().plusMinutes(5));
 
@@ -41,37 +46,47 @@ public class OtpServiceImpl implements OtpService {
                 "It will expire in 5 minutes.";
 
         try {
-            emailService.sendSimpleMessage(email, subject, body);
-            System.out.println("OTP Email sent successfully to " + email);
+            emailService.sendSimpleMessage(normalizedEmail, subject, body);
+            System.out.println("OTP Email sent successfully.");
         } catch (Exception e) {
-            System.err.println("Failed to send OTP email to " + email + ": " + e.getMessage());
-            // We do NOT throw exception here, so the DB save persists even if email fails
+            System.err.println("Failed to send OTP email: " + e.getMessage());
         }
     }
 
     @Override
     @Transactional
     public boolean verifyOtp(String email, String otpCode) {
-        System.out.println("VERIFYING OTP for " + email + " with code " + otpCode); // --- DEBUG LOG ---
+        String normalizedEmail = email.toLowerCase().trim();
+        String normalizedOtp = otpCode.trim();
 
-        Optional<Otp> otpOpt = otpRepo.findByEmailAndOtpCode(email, otpCode);
+        System.out.println("--- VERIFYING OTP ---");
+        System.out.println("Email: " + normalizedEmail);
+        System.out.println("Input: " + normalizedOtp);
+
+        Optional<Otp> otpOpt = otpRepo.findByEmailAndOtpCode(normalizedEmail, normalizedOtp);
 
         if (otpOpt.isEmpty()) {
-            System.out.println("OTP Verification Failed: No matching record found.");
+            System.out.println("RESULT: OTP Not Found (Check DB insert or Case)");
             return false;
         }
 
         Otp otp = otpOpt.get();
+        LocalDateTime now = LocalDateTime.now();
 
-        if (otp.getExpiresAt().isBefore(LocalDateTime.now())) {
-            System.out.println("OTP Verification Failed: OTP expired at " + otp.getExpiresAt());
-            otpRepo.deleteByEmail(email);
+        if (otp.getExpiresAt().isBefore(now)) {
+            System.out.println("RESULT: OTP Expired at " + otp.getExpiresAt());
+            otpRepo.deleteByEmail(normalizedEmail);
             return false;
         }
 
-        // OTP is valid
-        System.out.println("OTP Verification Success!");
-        otpRepo.deleteByEmail(email); // Consume the OTP so it can't be used again
+        System.out.println("RESULT: OTP Valid");
+
+        // --- FIXED: DO NOT DELETE OTP HERE ---
+        // This allows the OTP to be verified multiple times (e.g. by UI check then by Submit)
+        // It will be cleaned up automatically when a new one is requested (ON CONFLICT UPDATE)
+        // or when it expires.
+        // otpRepo.deleteByEmail(normalizedEmail);
+
         return true;
     }
 }

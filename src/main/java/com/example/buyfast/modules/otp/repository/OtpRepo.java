@@ -8,10 +8,6 @@ import java.util.Optional;
 @Mapper
 public interface OtpRepo {
 
-    /**
-     * Inserts or updates an OTP for a given email.
-     * ON CONFLICT(email) ensures that if an OTP already exists, it's updated.
-     */
     @Insert("INSERT INTO otp_number (email, otp_code, expires_at) " +
             "VALUES (#{email}, #{otpCode}, #{expiresAt}) " +
             "ON CONFLICT (email) DO UPDATE SET " +
@@ -19,7 +15,6 @@ public interface OtpRepo {
             "expires_at = EXCLUDED.expires_at")
     void save(Otp otp);
 
-    // --- FIXED: Added @Param annotations for multi-argument method ---
     @Select("SELECT * FROM otp_number WHERE email = #{email} AND otp_code = #{otpCode}")
     Optional<Otp> findByEmailAndOtpCode(@Param("email") String email, @Param("otpCode") String otpCode);
 

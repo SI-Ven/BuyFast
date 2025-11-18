@@ -75,6 +75,7 @@ CREATE TABLE users (
                        CONSTRAINT fk_user_company FOREIGN KEY (company_id) REFERENCES company(id)
                            ON DELETE SET NULL
 );
+ALTER TABLE users ADD COLUMN token_version INT DEFAULT 0;
 
 CREATE TABLE user_profile (
                               id BIGSERIAL PRIMARY KEY,
@@ -91,6 +92,7 @@ CREATE TABLE user_profile (
 );
 
 CREATE TABLE role (
+
                       id BIGSERIAL PRIMARY KEY,
                       role_uuid UUID NOT NULL UNIQUE,
                       role_name VARCHAR(100) UNIQUE NOT NULL, -- e.g., 'Platform Admin', 'Company Admin', 'Seller', 'Buyer'

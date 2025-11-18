@@ -1,7 +1,7 @@
 package com.example.buyfast.modules.user.model;
 
 import com.example.buyfast.modules.auth.model.Role;
-import com.fasterxml.jackson.annotation.JsonIgnore; // <-- IMPORT THIS
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -21,7 +21,7 @@ public class User implements UserDetails {
     private UUID userUuid;
     private String email;
 
-    @JsonIgnore // <-- Hides "userPassword" from JSON
+    @JsonIgnore
     private String userPassword;
 
     private String phoneNumber;
@@ -32,10 +32,11 @@ public class User implements UserDetails {
     private Timestamp createdAt;
     private Timestamp lastLogin;
 
+    // --- NEW FIELD ---
+    private Integer tokenVersion = 0;
+
     private Set<Role> roles = new HashSet<>();
     private UserProfile userProfile;
-
-    // --- UserDetails METHODS ---
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -46,33 +47,33 @@ public class User implements UserDetails {
     }
 
     @Override
-    @JsonIgnore // <-- Hides "password" from JSON
+    @JsonIgnore
     public String getPassword() {
         return this.userPassword;
     }
 
     @Override
-    @JsonIgnore // <-- Hides "username" (since you already have "email")
+    @JsonIgnore
     public String getUsername() {
         return this.email;
     }
 
     @Override
-    @JsonIgnore // <-- Hides "accountNonExpired"
+    @JsonIgnore
     public boolean isAccountNonExpired() { return true; }
 
     @Override
-    @JsonIgnore // <-- Hides "accountNonLocked"
+    @JsonIgnore
     public boolean isAccountNonLocked() {
         return !"banned".equals(this.status);
     }
 
     @Override
-    @JsonIgnore // <-- Hides "credentialsNonExpired"
+    @JsonIgnore
     public boolean isCredentialsNonExpired() { return true; }
 
     @Override
-    @JsonIgnore // <-- Hides "enabled"
+    @JsonIgnore
     public boolean isEnabled() {
         return "active".equals(this.status);
     }

@@ -1,5 +1,6 @@
 package com.example.buyfast.config;
 
+import com.example.buyfast.modules.user.model.User; // Import User model
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -21,7 +22,6 @@ public class JwtService {
     @Value("${application.security.jwt.secret-key}")
     private String secretKey;
 
-    // Token validity in milliseconds (e.g., 24 hours)
     private static final long JWT_EXPIRATION_MS = 1000 * 60 * 60 * 24;
 
     public String extractUsername(String token) {
@@ -41,6 +41,11 @@ public class JwtService {
             Map<String, Object> extraClaims,
             UserDetails userDetails
     ) {
+        // --- NEW: Add token version to claims ---
+        if (userDetails instanceof User user) {
+            extraClaims.put("tokenVersion", user.getTokenVersion());
+        }
+
         return Jwts
                 .builder()
                 .setClaims(extraClaims)
@@ -53,7 +58,20 @@ public class JwtService {
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
+        boolean isUserMatch = username.equals(userDetails.getUsername());
+        boolean isNotExpired = !isTokenExpired(token);
+
+        // --- NEW: Verify Token Version ---
+        boolean isVersionValid = true;
+        if (userDetails instanceof User user) {
+            Integer tokenVersion = extractClaim(token, claims -> claims.get("tokenVersion", Integer.class));
+            // If token has no version (old) or version doesn't match DB, it's invalid
+            if (tokenVersion == null || !tokenVersion.equals(user.getTokenVersion())) {
+                isVersionValid = false;
+            }
+        }
+
+        return isUserMatch && isNotExpired && isVersionValid;
     }
 
     private boolean isTokenExpired(String token) {
