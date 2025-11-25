@@ -22,4 +22,5 @@ public interface CompanyService {
     User deleteSeller(UUID sellerUuid, UserDetails adminDetails);
 
     Company updateCompanyProfile(UpdateCompanyRequest request, MultipartFile logoFile, UserDetails adminDetails);
+
 }

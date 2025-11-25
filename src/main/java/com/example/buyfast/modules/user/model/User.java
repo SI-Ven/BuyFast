@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 
 @Data
 public class User implements UserDetails {
-
+    @JsonIgnore
     private Long id;
     private UUID userUuid;
     private String email;
@@ -33,12 +33,14 @@ public class User implements UserDetails {
     private Timestamp lastLogin;
 
     // --- NEW FIELD ---
+    @JsonIgnore
     private Integer tokenVersion = 0;
 
     private Set<Role> roles = new HashSet<>();
     private UserProfile userProfile;
 
     @Override
+    @JsonIgnore
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return roles.stream()
                 .flatMap(role -> role.getPermissions().stream())

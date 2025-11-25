@@ -1,10 +1,8 @@
 package com.example.buyfast.modules.verify.controller;
 
 import com.example.buyfast.common.ApiResponse;
-import com.example.buyfast.modules.verify.dto.RejectVerificationRequest;
 import com.example.buyfast.modules.verify.model.Verify; // <-- NEW IMPORT
 import com.example.buyfast.modules.verify.service.VerifyService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -47,13 +45,17 @@ public class VerifyController {
 
     // --- MODIFIED ---
     @PostMapping("/reject/{verifyUuid}")
-    public ResponseEntity<ApiResponse<Verify>> rejectRequest(
-            @PathVariable UUID verifyUuid,
-            @Valid @RequestBody RejectVerificationRequest request, // <-- Use DTO here
-            @AuthenticationPrincipal UserDetails adminDetails) {
+    public ResponseEntity<ApiResponse<Verify>> rejectRequest( // <-- Changed to ApiResponse<Verify>
+                                                              @PathVariable UUID verifyUuid,
+                                                              @RequestBody(required = false) Map<String, String> payload,
+                                                              @AuthenticationPrincipal UserDetails adminDetails) {
 
-        // No need to manually check for null/blank "remarks" because @Valid handles it
-        Verify verification = verifyService.rejectVerification(verifyUuid, request.getRemarks(), adminDetails);
-        return ResponseEntity.ok(ApiResponse.success("Verification rejected.", verification));
+        String remarks = payload.get("remarks");
+        if (remarks == null || remarks.isBlank()) {
+            throw new IllegalStateException("Rejection remarks are required.");
+        }
+
+        Verify verification = verifyService.rejectVerification(verifyUuid, remarks, adminDetails);
+        return ResponseEntity.ok(ApiResponse.success("Verification rejected.", verification)); // <-- Add payload
     }
 }

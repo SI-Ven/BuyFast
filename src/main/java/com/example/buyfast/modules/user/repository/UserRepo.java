@@ -76,4 +76,7 @@ public interface UserRepo {
 
     @Update("UPDATE users SET status = #{status} WHERE user_uuid = #{uuid}")
     void updateUserStatusByUuid(@Param("uuid") UUID uuid, @Param("status") String status);
+
+    @Update("UPDATE users SET phone_number = #{phoneNumber}, phone_verified = false WHERE id = #{id}")
+    void updateUserPhoneNumber(@Param("id") Long id, @Param("phoneNumber") String phoneNumber);
 }

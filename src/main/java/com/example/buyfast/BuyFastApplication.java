@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration;
 @SpringBootApplication
 @Configuration
 @OpenAPIDefinition(
-        info = @Info(title = "ResellKH API", version = "1.0"),
+        info = @Info(title = "BuyFast API", version = "1.0"),
         security = @SecurityRequirement(name = "bearerAuth")
 )
 @SecurityScheme(

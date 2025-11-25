@@ -176,6 +176,7 @@ CREATE TABLE company_settings (
                                   UNIQUE(company_id, setting_name) -- Each company can only have one value for each setting
 );
 
+
 -- Add the foreign key from company to users (after users table is created)
 ALTER TABLE company ADD CONSTRAINT fk_company_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
 
@@ -196,10 +197,10 @@ CREATE TABLE product (
     -- REMOVED: price DECIMAL(10,2) NOT NULL,
     -- REMOVED: stock_quantity INT NOT NULL,
                          CONSTRAINT fk_product_company FOREIGN KEY (company_id) REFERENCES company(id),
-                         CONSTRAINT fk_product_seller FOREIGN KEY (seller_id) REFERENCES users(id),
+                         CONSTRAINT fk_product_seller FOREIGN KEY (seller_id) REFERENCES users(id) ON DELETE CASCADE,
                          CONSTRAINT fk_product_category FOREIGN KEY (category_id) REFERENCES category(id)
 );
-
+drop table orders cascade ;
 -- =======================================================
 -- NEW: PRODUCT OPTION TABLE (e.g., "Size", "Color")
 -- =======================================================
@@ -318,7 +319,7 @@ CREATE TABLE orders (
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         payment_method VARCHAR(50),
-                        CONSTRAINT fk_order_user FOREIGN KEY (user_id) REFERENCES users(id),
+                        CONSTRAINT fk_order_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
                         CONSTRAINT fk_order_address FOREIGN KEY (shipping_address_id) REFERENCES shipping_address(id)
 );
 
@@ -513,3 +514,7 @@ INSERT INTO category (category_name, main_category_id, level)
 SELECT 'Fresh Food', id, 2 FROM main_category WHERE main_category_name = 'Food & Grocery';
 INSERT INTO category (category_name, main_category_id, level)
 SELECT 'Packaged Food', id, 2 FROM main_category WHERE main_category_name = 'Food & Grocery';
+
+
+delete from users where id = 4 ;
+SELECT * FROM verify WHERE target_id = 'b618ed47-f6d2-4550-b894-d368f2e7d52c';

@@ -5,13 +5,22 @@ import com.example.buyfast.modules.user.model.User;
 import com.example.buyfast.modules.user.model.UserProfile; // <-- NEW IMPORT
 import com.example.buyfast.modules.verify.model.Verify;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.time.LocalDate;
 
 public interface UserService {
 
     // --- MODIFIED RETURN TYPE ---
     // Returns UserProfile as the user object itself doesn't change
-    UserProfile updateUserProfile(UpdateProfileRequest request, UserDetails userDetails);
-
+    UserProfile updateUserProfile(
+            String firstName,
+            String lastName,
+            LocalDate dob,
+            String address,
+            String phoneNumber,
+            UserDetails userDetails,
+            MultipartFile profilePictureFile);
     Verify becomeSeller(UserDetails userDetails);
 
     void sendPhoneVerificationOtp(UserDetails userDetails);
@@ -20,4 +29,6 @@ public interface UserService {
 
     // --- NEW METHOD ---
     void deleteUser(UserDetails userDetails);
+
+    User getFullUserProfile(UserDetails userDetails);
 }

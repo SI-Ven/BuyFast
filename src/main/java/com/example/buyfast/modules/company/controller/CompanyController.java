@@ -34,4 +34,5 @@ public class CompanyController {
         Company company = companyService.createCompany(request, userDetails);
         return ResponseEntity.ok(ApiResponse.success("Company created successfully. You are now a company admin.", company));
     }
+
 }

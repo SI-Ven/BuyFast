@@ -8,11 +8,15 @@ import com.example.buyfast.modules.user.service.UserService;
 import com.example.buyfast.modules.verify.model.Verify;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.Map;
 
 @RestController
@@ -26,19 +30,30 @@ public class UserController {
     @GetMapping("/profile")
     public ResponseEntity<ApiResponse<User>> getProfile(
             @AuthenticationPrincipal UserDetails userDetails) {
-        // The User object from @AuthenticationPrincipal is fully populated
-        // by the UserDetailsService, which should include the UserProfile.
-        User currentUser = (User) userDetails;
-        return ResponseEntity.ok(ApiResponse.success("Profile retrieved successfully.", currentUser));
+
+        // Use the service to get the User AND the Profile attached
+        User fullUser = userService.getFullUserProfile(userDetails);
+
+        return ResponseEntity.ok(ApiResponse.success("Profile retrieved successfully.", fullUser));
     }
 
     // --- MODIFIED ENDPOINT ---
-    @PutMapping("/profile")
-    public ResponseEntity<ApiResponse<UserProfile>> updateProfile( // <-- Return UserProfile
-                                                                   @Valid @RequestBody UpdateProfileRequest request,
-                                                                   @AuthenticationPrincipal UserDetails userDetails) {
+    @PutMapping(value = "/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<UserProfile>> updateProfile(
+            @RequestParam(value = "firstName", required = false) String firstName,
+            @RequestParam(value = "lastName", required = false) String lastName,
+            // userName and userProfile (string) removed from inputs
+            @RequestParam(value = "dob", required = false) @DateTimeFormat(pattern = "MM-dd-yyyy") LocalDate dob,
+            @RequestParam(value = "address", required = false) String address,
+            @RequestParam(value = "phoneNumber", required = false) String phoneNumber,
+            @RequestParam(value = "profilePictureFile", required = false) MultipartFile profilePictureFile,
+            @AuthenticationPrincipal UserDetails userDetails) {
 
-        UserProfile updatedProfile = userService.updateUserProfile(request, userDetails);
+        // MODIFIED SERVICE CALL
+        UserProfile updatedProfile = userService.updateUserProfile(
+                firstName, lastName, dob, address, phoneNumber,
+                userDetails, profilePictureFile);
+
         return ResponseEntity.ok(ApiResponse.success("Profile updated successfully.", updatedProfile));
     }
 

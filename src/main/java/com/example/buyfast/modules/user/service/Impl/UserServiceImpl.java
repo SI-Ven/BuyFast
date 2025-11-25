@@ -1,7 +1,7 @@
 package com.example.buyfast.modules.user.service.Impl;
 
 import com.example.buyfast.modules.otp.service.SmsOtpService;
-import com.example.buyfast.modules.user.dto.UpdateProfileRequest;
+import com.example.buyfast.modules.storage.service.StorageService;
 import com.example.buyfast.modules.user.model.User;
 import com.example.buyfast.modules.user.model.UserProfile; // <-- NEW IMPORT
 import com.example.buyfast.modules.user.repository.UserProfileRepo; // <-- NEW IMPORT
@@ -14,6 +14,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.time.LocalDate;
 
 @Service
 @RequiredArgsConstructor
@@ -24,59 +27,88 @@ public class UserServiceImpl implements UserService {
     private final SmsOtpService smsOtpService;
     private final VerifyRepo verifyRepo;
     private final UuidService uuidService;
+    private final StorageService storageService;
 
     // --- HEAVILY MODIFIED ---
     @Override
     @Transactional
-    public UserProfile updateUserProfile(UpdateProfileRequest request, UserDetails userDetails) {
+    public UserProfile updateUserProfile( // MODIFIED SIGNATURE
+                                          String firstName,
+                                          String lastName,
+                                          LocalDate dob,
+                                          String address,
+                                          String phoneNumber,
+                                          UserDetails userDetails,
+                                          MultipartFile profilePictureFile) {
+
         User currentUser = (User) userDetails;
 
         // 1. Get or Create UserProfile
-        // This handles users who were created without a profile entry
         UserProfile profile = userProfileRepo.findByUserId(currentUser.getId())
                 .orElseGet(() -> {
                     UserProfile newProfile = new UserProfile();
                     newProfile.setUserId(currentUser.getId());
-                    userProfileRepo.create(newProfile); // Assumes 'create' sets the ID
+                    userProfileRepo.create(newProfile);
                     return newProfile;
                 });
 
-        // 2. Update Profile Fields (on the UserProfile object)
+        // 2. Update Profile Fields
         boolean profileUpdated = false;
-        if (request.getFirstName() != null) {
-            profile.setFirstName(request.getFirstName());
+
+        // --- Update individual fields ---
+        if (firstName != null) {
+            profile.setFirstName(firstName);
             profileUpdated = true;
         }
-        if (request.getLastName() != null) {
-            profile.setLastName(request.getLastName());
-            profileUpdated = true;
-        }
-        if (request.getUserName() != null) {
-            profile.setUserName(request.getUserName());
-            profileUpdated = true;
-        }
-        if (request.getUserProfile() != null) {
-            profile.setUserProfile(request.getUserProfile());
-            profileUpdated = true;
-        }
-        if (request.getDob() != null) {
-            // --- THIS IS THE FIX ---
-            // Convert java.time.LocalDate to java.sql.Date
-            profile.setDob(request.getDob());
-            // ---------------------
-            profileUpdated = true;
-        }
-        if (request.getAddress() != null) {
-            profile.setAddress(request.getAddress());
+        if (lastName != null) {
+            profile.setLastName(lastName);
             profileUpdated = true;
         }
 
-        // 4. Return the updated profile
-        // We also set it on the currentUser object for this request context
+        // --- NEW LOGIC: Automatically set username ---
+        String currentFirstName = profile.getFirstName() != null ? profile.getFirstName() : "";
+        String currentLastName = profile.getLastName() != null ? profile.getLastName() : "";
+        String newUserName = currentFirstName + currentLastName;
+
+        if (!newUserName.equals(profile.getUserName())) {
+            profile.setUserName(newUserName);
+            profileUpdated = true;
+        }
+        // ---------------------------------------------
+
+        if (dob != null) {
+            profile.setDob(dob);
+            profileUpdated = true;
+        }
+        if (address != null) {
+            profile.setAddress(address);
+            profileUpdated = true;
+        }
+
+        // Handle phone number update and verification status
+        if (phoneNumber != null && !phoneNumber.equals(currentUser.getPhoneNumber())) {
+            currentUser.setPhoneNumber(phoneNumber);
+            currentUser.setPhoneVerified(false);
+            userRepo.updateUserPhoneNumber(currentUser.getId(), phoneNumber);
+        }
+
+        // 3. Handle File Upload (using 'profilePictureFile' for the actual upload)
+        if (profilePictureFile != null && !profilePictureFile.isEmpty()) {
+            String newProfilePicUrl = storageService.uploadFile(profilePictureFile);
+            profile.setUserProfile(newProfilePicUrl); // userProfile field holds the avatar URL
+            profileUpdated = true;
+        }
+        // NOTE: The previous string 'userProfile' input is no longer supported as an input parameter.
+
+        // 4. Persist the profile changes
+        if (profileUpdated) {
+            userProfileRepo.update(profile);
+        }
+
+        // 5. Return the updated profile
         currentUser.setUserProfile(profile);
         return profile;
     }
-
     // --- MODIFIED ---
     @Override
     @Transactional
@@ -114,15 +146,18 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public void deleteUser(UserDetails userDetails) {
         User currentUser = (User) userDetails;
-
-        // 1. Delete associated profile
-        userProfileRepo.deleteByUserId(currentUser.getId());
-
-        // 2. Delete role associations (MyBatis/DB cascade should handle this)
-        // If not, you need a UserRoleRepo.deleteByUserId(currentUser.getId())
-
-        // 3. Delete the user
         userRepo.deleteById(currentUser.getId());
+    }
+
+    @Override
+    public User getFullUserProfile(UserDetails userDetails) {
+        User currentUser = (User) userDetails;
+
+        // Fetch the profile manually using the Repo
+        userProfileRepo.findByUserId(currentUser.getId())
+                .ifPresent(profile -> currentUser.setUserProfile(profile));
+
+        return currentUser;
     }
 
     @Override
