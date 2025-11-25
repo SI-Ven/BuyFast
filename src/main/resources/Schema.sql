@@ -260,14 +260,16 @@ CREATE TABLE product_image (
                                id BIGSERIAL PRIMARY KEY,
                                image_uuid UUID NOT NULL UNIQUE,
                                product_id BIGINT NOT NULL,
-                               image_url VARCHAR(512) UNIQUE NOT NULL,
+                               image_url VARCHAR(512) NOT NULL,
                                is_main BOOLEAN DEFAULT FALSE,
                                sort_order INT,
                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    -- NEW: Allow linking an image to a specific variant
                                variant_id BIGINT,
+                               option_value_id BIGINT,
+
                                CONSTRAINT fk_image_product FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE CASCADE,
-                               CONSTRAINT fk_image_variant FOREIGN KEY (variant_id) REFERENCES product_variant(id) ON DELETE SET NULL
+                               CONSTRAINT fk_image_variant FOREIGN KEY (variant_id) REFERENCES product_variant(id) ON DELETE SET NULL,
+                               CONSTRAINT fk_image_option_value FOREIGN KEY (option_value_id) REFERENCES product_option_value(id) ON DELETE SET NULL
 );
 
 -- ... (rest of Schema.sql is unchanged) ...
@@ -286,25 +288,28 @@ CREATE TABLE verify (
                         reviewed_at TIMESTAMP,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         remarks TEXT,
-                        CONSTRAINT fk_verify_submitter FOREIGN KEY (submitted_by) REFERENCES users(id),
-                        CONSTRAINT fk_verify_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id)
+                        CONSTRAINT fk_verify_submitter FOREIGN KEY (submitted_by) REFERENCES users(id) ON DELETE CASCADE,
+                        CONSTRAINT fk_verify_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
 );
-drop table verify cascade ;
+
+drop table verify;
 truncate table users restart identity cascade ;
 -- =======================================================
 -- 8️⃣ SHIPPING ADDRESS TABLE
 -- =======================================================
-CREATE TABLE shipping_address (
-                                  id BIGSERIAL PRIMARY KEY, -- Internal ID
-                                  address_uuid UUID NOT NULL UNIQUE, -- External ID
-                                  user_id BIGINT NOT NULL, -- FK uses internal ID
-                                  full_name VARCHAR(255) NOT NULL,
-                                  address_line_1 VARCHAR(255) NOT NULL,
-                                  city VARCHAR(100) NOT NULL,
-                                  country VARCHAR(100) NOT NULL,
-                                  is_default BOOLEAN DEFAULT FALSE,
-                                  CONSTRAINT fk_shipping_user FOREIGN KEY (user_id) REFERENCES users(id)
+CREATE TABLE shipping_address
+(
+    id             BIGSERIAL PRIMARY KEY,        -- Internal ID
+    address_uuid   UUID         NOT NULL UNIQUE, -- External ID
+    user_id        BIGINT       NOT NULL,        -- FK uses internal ID
+    full_name      VARCHAR(255) NOT NULL,
+    address_line_1 VARCHAR(255) NOT NULL,
+    city           VARCHAR(100) NOT NULL,
+    country        VARCHAR(100) NOT NULL,
+    is_default     BOOLEAN DEFAULT FALSE,
+    CONSTRAINT fk_shipping_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
+drop table review cascade ;
 
 -- =======================================================
 -- 9️⃣ ORDER TABLE
@@ -366,7 +371,7 @@ CREATE TABLE review (
                         review_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         helpful_votes INT DEFAULT 0,
                         CONSTRAINT fk_review_product FOREIGN KEY (product_id) REFERENCES product(id),
-                        CONSTRAINT fk_review_user FOREIGN KEY (user_id) REFERENCES users(id)
+                        CONSTRAINT fk_review_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- =======================================================
@@ -382,7 +387,7 @@ CREATE TABLE notification (
                               is_read BOOLEAN DEFAULT FALSE,
                               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                               link_url VARCHAR(512),
-                              CONSTRAINT fk_notification_user FOREIGN KEY (user_id) REFERENCES users(id)
+                              CONSTRAINT fk_notification_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE TABLE otp_number (
                             id BIGSERIAL PRIMARY KEY,

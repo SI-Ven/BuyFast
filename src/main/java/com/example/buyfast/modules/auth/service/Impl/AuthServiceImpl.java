@@ -61,8 +61,8 @@ public class AuthServiceImpl implements AuthService {
         user.setUserPassword(passwordEncoder.encode(request.getPassword()));
         user.setStatus("active");
         user.setCompanyId(null);
-        user.setPhoneNumber("false");
-        user.setVerified(Boolean.valueOf("false"));
+        user.setPhoneVerified(false);
+        user.setVerified(false);
 
         // This save MUST generate the ID (ensure UserRepo.save has @Options(useGeneratedKeys=true...))
         userRepo.save(user);
@@ -109,7 +109,9 @@ public class AuthServiceImpl implements AuthService {
         user.setEmail(email);
         user.setUserPassword(passwordEncoder.encode(request.getPassword()));
         user.setStatus("pending");
-        user.setCompanyId(null); // Will update after company creation
+        user.setCompanyId(null);
+        user.setPhoneVerified(false);
+        user.setVerified(false);
 
         userRepo.save(user);
 

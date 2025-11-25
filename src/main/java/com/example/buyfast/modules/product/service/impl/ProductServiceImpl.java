@@ -1,14 +1,12 @@
 package com.example.buyfast.modules.product.service.Impl;
 
+import com.example.buyfast.modules.category.model.Category;
 import com.example.buyfast.modules.category.repository.CategoryRepo;
 import com.example.buyfast.modules.product.dto.CreateProductRequest;
 import com.example.buyfast.modules.product.dto.OptionValueRequest;
 import com.example.buyfast.modules.product.dto.VariantRequest;
 // import com.example.buyfast.modules.product.dto.UpdateProductRequest;
-import com.example.buyfast.modules.product.model.Product;
-import com.example.buyfast.modules.product.model.ProductOption;
-import com.example.buyfast.modules.product.model.ProductOptionValue;
-import com.example.buyfast.modules.product.model.ProductVariant;
+import com.example.buyfast.modules.product.model.*;
 import com.example.buyfast.modules.product.repository.*;
 import com.example.buyfast.modules.product.service.ProductService;
 import com.example.buyfast.modules.user.model.User;
@@ -37,92 +35,98 @@ public class ProductServiceImpl implements ProductService {
     private final ProductVariantRepo productVariantRepo;
     private final ProductVariantValuesRepo productVariantValuesRepo;
 
+    // src/main/java/com/example/buyfast/modules/product/service/impl/ProductServiceImpl.java
+
+// ... imports ...
+
     @Override
     @Transactional
     public Product createProduct(CreateProductRequest request, UserDetails sellerDetails) {
         User seller = (User) sellerDetails;
 
-        // 1. Find Category
-        Long categoryId = categoryRepo.findCategoryIdByUuid(request.getCategoryUuid());
-        if (categoryId == null) {
-            throw new IllegalStateException("Category not found with UUID: " + request.getCategoryUuid());
-        }
+        // 1. --- HANDLE CATEGORY ---
+        // This finds the category by the UUID you send in the JSON
+        Category category = categoryRepo.findByCategoryUuid(request.getCategoryUuid())
+                .orElseThrow(() -> new IllegalArgumentException("Category not found with UUID: " + request.getCategoryUuid()));
 
-        // 2. Create Base Product
+        // 2. Create and Save Parent Product
         Product product = new Product();
         product.setProductUuid(uuidService.generateUuid());
         product.setProductName(request.getProductName());
-        product.setDescription(request.getDescription());
-        product.setCategoryId(categoryId);
-        product.setActive(true);
         product.setSellerId(seller.getId());
         product.setCompanyId(seller.getCompanyId());
+        product.setCategoryId(category.getId()); // <--- Linked correctly here
+        product.setDescription(request.getDescription());
+        product.setActive(true);
 
-        productRepo.insert(product);
-        Long productId = product.getId(); // Get the new internal product ID
+        productRepo.insert(product); // Assuming you have an insert method
 
-        // --- 3. Create Options, Values, and Variants ---
+        // 3. Process Variants
+        for (VariantRequest variantReq : request.getVariants()) {
 
-        // Maps to prevent creating duplicate options/values
-        Map<String, ProductOption> optionsMap = new HashMap<>();
-        Map<String, ProductOptionValue> valuesMap = new HashMap<>();
-
-        for (VariantRequest variantDto : request.getVariants()) {
-
-            // a. Create the Variant (SKU)
+            // Create Variant (SKU)
             ProductVariant variant = new ProductVariant();
             variant.setVariantUuid(uuidService.generateUuid());
-            variant.setProductId(productId);
-            variant.setPrice(variantDto.getPrice());
-            variant.setStockQuantity(variantDto.getStockQuantity());
+            variant.setProductId(product.getId());
+            variant.setPrice(variantReq.getPrice());
+            variant.setStockQuantity(variantReq.getStockQuantity());
             variant.setActive(true);
-            // We could generate a SKU here, e.g., "PROD-1001-SM-RED"
+            // Generate a SKU string (e.g., "PROD-123-WOODEN-SMALL")
+            // variant.setSku(...);
 
             productVariantRepo.insert(variant);
-            Long variantId = variant.getId(); // Get the new internal variant ID
 
-            List<Long> valueIdsToLink = new ArrayList<>();
+            // 4. Process Options (Material: Wooden, Size: Small)
+            for (OptionValueRequest optionReq : variantReq.getOptions()) {
 
-            // b. Loop through the options for this variant (e.g., "Size: Small", "Color: Red")
-            for (OptionValueRequest optionValueDto : variantDto.getOptions()) {
+                // A. Get or Create Option Group (e.g., "Material")
+                ProductOption option = productOptionRepo.findByProductIdAndOptionName(product.getId(), optionReq.getOptionName())
+                        .orElseGet(() -> {
+                            ProductOption newOpt = new ProductOption();
+                            newOpt.setOptionUuid(uuidService.generateUuid());
+                            newOpt.setProductId(product.getId());
+                            newOpt.setOptionName(optionReq.getOptionName());
+                            productOptionRepo.insert(newOpt);
+                            return newOpt;
+                        });
 
-                // c. Get or Create the "Option" (e.g., "Size")
-                ProductOption option = optionsMap.computeIfAbsent(optionValueDto.getOptionName(), optionName -> {
-                    ProductOption newOption = new ProductOption();
-                    newOption.setOptionUuid(uuidService.generateUuid());
-                    newOption.setProductId(productId);
-                    newOption.setOptionName(optionName);
-                    productOptionRepo.insert(newOption);
-                    return newOption;
-                });
+                // B. Get or Create Option Value (e.g., "Wooden")
+                ProductOptionValue value = productOptionValueRepo.findByOptionIdAndValueName(option.getId(), optionReq.getValueName())
+                        .orElseGet(() -> {
+                            ProductOptionValue newVal = new ProductOptionValue();
+                            newVal.setValueUuid(uuidService.generateUuid());
+                            newVal.setOptionId(option.getId());
+                            newVal.setValueName(optionReq.getValueName());
+                            productOptionValueRepo.insert(newVal);
+                            return newVal;
+                        });
 
-                // d. Get or Create the "Value" (e.g., "Small")
-                String valueKey = option.getId() + ":" + optionValueDto.getValueName();
-                ProductOptionValue value = valuesMap.computeIfAbsent(valueKey, v -> {
-                    ProductOptionValue newValue = new ProductOptionValue();
-                    newValue.setValueUuid(uuidService.generateUuid());
-                    newValue.setOptionId(option.getId());
-                    newValue.setValueName(optionValueDto.getValueName());
-                    productOptionValueRepo.insert(newValue);
-                    return newValue;
-                });
+                // C. Link Variant to this Value
+                productVariantValuesRepo.insert(variant.getId(), value.getId());
 
-                valueIdsToLink.add(value.getId());
-            }
+                // D. --- SAVE IMAGES FOR THIS VALUE ---
+                // If the user provided images for "Wooden", save them now.
+                if (optionReq.getImageUrls() != null && !optionReq.getImageUrls().isEmpty()) {
+                    for (String url : optionReq.getImageUrls()) {
+                        // Check if this image was already saved for this specific "Wooden" value
+                        // (To prevent duplicates if "Wooden" is used in multiple variants)
+                        if (!productImageRepo.existsByUrlAndValueId(url, value.getId())) {
+                            ProductImage image = new ProductImage();
+                            image.setImageUuid(uuidService.generateUuid());
+                            image.setProductId(product.getId());
+                            image.setImageUrl(url);
+                            image.setIsMain(false);
+                            image.setOptionValueId(value.getId()); // <--- LINKED HERE
 
-            // e. Link the Variant to its OptionValues
-            if (!valueIdsToLink.isEmpty()) {
-                productVariantValuesRepo.linkVariantToValues(variantId, valueIdsToLink);
+                            productImageRepo.insert(image);
+                        }
+                    }
+                }
             }
         }
 
         return product;
     }
-
-    /*
-     * Note: updateProduct is very complex and would require logic to add new variants,
-     * update existing ones, and delete old ones. We will skip it for now.
-     */
 
     @Override
     @Transactional

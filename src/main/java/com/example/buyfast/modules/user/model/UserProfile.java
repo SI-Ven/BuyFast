@@ -10,6 +10,7 @@ import java.sql.Timestamp;
 public class UserProfile {
     @JsonIgnore
     private Long id;
+    @JsonIgnore
     private Long userId; // Foreign key to users.id
     private String firstName;
     private String lastName;

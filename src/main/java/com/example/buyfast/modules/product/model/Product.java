@@ -1,10 +1,12 @@
 package com.example.buyfast.modules.product.model;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
-// import java.math.BigDecimal; // <-- REMOVED
+import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.UUID;
-
+@AllArgsConstructor
+@NoArgsConstructor
 @Data
 public class Product {
     private Long id;
@@ -14,8 +16,11 @@ public class Product {
     private Long sellerId;
     private Long categoryId;
     private String description;
-    // REMOVED: private BigDecimal price;
-    // REMOVED: private int stockQuantity;
     private boolean isActive;
     private LocalDateTime createdAt;
+
+
+    public boolean isActive() {
+        return isActive;
+    }
 }
