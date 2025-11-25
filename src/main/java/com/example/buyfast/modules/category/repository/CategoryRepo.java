@@ -5,6 +5,7 @@ import com.example.buyfast.modules.category.model.MainCategory;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Mapper
@@ -23,15 +24,13 @@ public interface CategoryRepo {
     @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
     void insertCategory(Category category);
 
-
-    // --- NEW METHOD ---
-    /**
-     * Finds the internal ID of a sub-category by its public UUID.
-     */
     @Select("SELECT id FROM category WHERE category_uuid = #{categoryUuid}")
     Long findCategoryIdByUuid(UUID categoryUuid);
-    // --- END NEW METHOD ---
 
+    // --- NEW METHOD FIXED ---
+    @Select("SELECT * FROM category WHERE category_uuid = #{categoryUuid}")
+    Optional<Category> findByCategoryUuid(UUID categoryUuid);
+    // -----------------------
 
     @Select("SELECT * FROM main_category WHERE status = 'active' ORDER BY main_category_name")
     @Results({

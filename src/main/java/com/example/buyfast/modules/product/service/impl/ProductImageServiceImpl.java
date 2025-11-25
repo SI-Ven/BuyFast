@@ -1,4 +1,4 @@
-package com.example.buyfast.modules.product.service.Impl;
+package com.example.buyfast.modules.product.service.impl;
 
 import com.example.buyfast.modules.product.model.Product;
 import com.example.buyfast.modules.product.model.ProductImage;
@@ -45,7 +45,7 @@ public class ProductImageServiceImpl implements ProductImageService {
         image.setImageUuid(uuidService.generateUuid());
         image.setProductId(product.getId());
         image.setImageUrl(imageUrl);
-        image.setMain(isMain);
+        image.setIsMain(isMain);
         image.setSortOrder(sortOrder);
         image.setVariantId(null); // This is a general product image
 
@@ -79,7 +79,7 @@ public class ProductImageServiceImpl implements ProductImageService {
         image.setImageUuid(uuidService.generateUuid());
         image.setProductId(product.getId()); // Link to parent product
         image.setImageUrl(imageUrl);
-        image.setMain(isMain);
+        image.setIsMain(isMain);
         image.setSortOrder(sortOrder);
         image.setVariantId(variant.getId()); // <-- Link to the specific variant
 

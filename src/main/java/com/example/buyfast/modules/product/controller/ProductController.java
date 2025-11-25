@@ -5,14 +5,21 @@ import com.example.buyfast.modules.product.dto.CreateProductRequest;
 // import com.example.buyfast.modules.product.dto.UpdateProductRequest; // Update DTO is not used yet
 import com.example.buyfast.modules.product.model.Product;
 import com.example.buyfast.modules.product.service.ProductService;
+import com.example.buyfast.modules.storage.service.StorageService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,6 +29,28 @@ import java.util.UUID;
 public class ProductController {
 
     private final ProductService productService;
+    private final StorageService storageService;
+
+    @PostMapping(value = "/upload-images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload multiple product images")
+    public ResponseEntity<ApiResponse<List<String>>> uploadImages(
+            @Parameter(
+                    description = "Select images to upload",
+                    content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE)
+            )
+            @RequestPart("files") List<MultipartFile> files) { // Try @RequestPart
+
+        List<String> imageUrls = new ArrayList<>();
+
+        for (MultipartFile file : files) {
+            if (!file.isEmpty()) {
+                String url = storageService.uploadFile(file);
+                imageUrls.add(url);
+            }
+        }
+
+        return ResponseEntity.ok(ApiResponse.success("Images uploaded successfully.", imageUrls));
+    }
 
     @PostMapping
     public ResponseEntity<ApiResponse<Product>> createProduct(

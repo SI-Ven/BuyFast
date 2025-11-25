@@ -2,7 +2,6 @@ package com.example.buyfast.modules.product.repository;
 
 import com.example.buyfast.modules.product.model.ProductOption;
 import org.apache.ibatis.annotations.*;
-
 import java.util.Optional;
 
 @Mapper
@@ -14,5 +13,5 @@ public interface ProductOptionRepo {
     void insert(ProductOption option);
 
     @Select("SELECT * FROM product_option WHERE product_id = #{productId} AND option_name = #{optionName}")
-    Optional<ProductOption> findByProductIdAndName(@Param("productId") Long productId, @Param("optionName") String optionName);
+    Optional<ProductOption> findByProductIdAndOptionName(@Param("productId") Long productId, @Param("optionName") String optionName);
 }

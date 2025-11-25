@@ -12,5 +12,5 @@ public class OptionValueRequest {
 
     @NotBlank(message = "Value name is required (e.g., 'Small')")
     private String valueName;  // "Small"
-    private List<String> imgUrl;
+    private List<String> imgUrls;
 }
