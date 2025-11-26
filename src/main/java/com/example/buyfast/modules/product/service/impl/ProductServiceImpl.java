@@ -2,10 +2,7 @@ package com.example.buyfast.modules.product.service.impl;
 
 import com.example.buyfast.modules.category.model.Category;
 import com.example.buyfast.modules.category.repository.CategoryRepo;
-import com.example.buyfast.modules.product.dto.CreateProductRequest;
-import com.example.buyfast.modules.product.dto.OptionValueRequest;
-import com.example.buyfast.modules.product.dto.ProductResponse;
-import com.example.buyfast.modules.product.dto.VariantRequest;
+import com.example.buyfast.modules.product.dto.*;
 import com.example.buyfast.modules.product.model.*;
 import com.example.buyfast.modules.product.repository.*;
 import com.example.buyfast.modules.product.service.ProductService;
@@ -16,9 +13,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.math.BigDecimal;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -55,12 +52,29 @@ public class ProductServiceImpl implements ProductService {
         product.setActive(true);
         productRepo.insert(product);
 
-        // Prepare lists for Response
+        // --- PREPARE VARIABLES FOR RESPONSE & HINTS ---
         List<ProductResponse.VariantResponse> variantResponses = new ArrayList<>();
-        boolean mainImageSet = false; // <--- FIX FOR MAIN IMAGE
+        boolean mainImageSet = false; // Tracks if we have set a main image yet
+
+        // New Hint Variables
+        BigDecimal minPrice = null;
+        BigDecimal maxPrice = null;
+        Map<String, Set<String>> optionsSummary = new HashMap<>();
+        // ----------------------------------------------
 
         // 3. Process Variants
         for (VariantRequest variantReq : request.getVariants()) {
+
+            // --- A. CALCULATE PRICE RANGE HINTS ---
+            BigDecimal price = variantReq.getPrice();
+            if (minPrice == null || price.compareTo(minPrice) < 0) {
+                minPrice = price;
+            }
+            if (maxPrice == null || price.compareTo(maxPrice) > 0) {
+                maxPrice = price;
+            }
+            // --------------------------------------
+
             ProductVariant variant = new ProductVariant();
             variant.setVariantUuid(uuidService.generateUuid());
             variant.setProductId(product.getId());
@@ -78,7 +92,13 @@ public class ProductServiceImpl implements ProductService {
 
             // 4. Process Options
             for (OptionValueRequest optionReq : variantReq.getOptions()) {
-                // A. Save/Get Option (e.g., "Material")
+
+                // --- B. COLLECT OPTION HINTS (e.g. "Material": ["Wood", "Steel"]) ---
+                optionsSummary.computeIfAbsent(optionReq.getOptionName(), k -> new HashSet<>())
+                        .add(optionReq.getValueName());
+                // --------------------------------------------------------------------
+
+                // Save/Get Option (e.g., "Material")
                 ProductOption option = productOptionRepo.findByProductIdAndOptionName(product.getId(), optionReq.getOptionName())
                         .orElseGet(() -> {
                             ProductOption newOpt = new ProductOption();
@@ -89,7 +109,7 @@ public class ProductServiceImpl implements ProductService {
                             return newOpt;
                         });
 
-                // B. Save/Get Value (e.g., "Wooden")
+                // Save/Get Value (e.g., "Wooden")
                 ProductOptionValue value = productOptionValueRepo.findByOptionIdAndValueName(option.getId(), optionReq.getValueName())
                         .orElseGet(() -> {
                             ProductOptionValue newVal = new ProductOptionValue();
@@ -102,17 +122,18 @@ public class ProductServiceImpl implements ProductService {
 
                 productVariantValuesRepo.insert(variant.getId(), value.getId());
 
-                // C. Save Images & Handle Main Image
+                // Save Images & Handle Main Image
                 List<String> savedImageUrls = new ArrayList<>();
                 if (optionReq.getImgUrls() != null) {
                     for (String url : optionReq.getImgUrls()) {
+                        // Avoid duplicates for the same value
                         if (!productImageRepo.existsByUrlAndValueId(url, value.getId())) {
                             ProductImage image = new ProductImage();
                             image.setImageUuid(uuidService.generateUuid());
                             image.setProductId(product.getId());
                             image.setImageUrl(url);
                             image.setOptionValueId(value.getId());
-                            image.setVariantId(variant.getId()); // Link to variant too for safety
+                            image.setVariantId(variant.getId());
 
                             // FIX: Set first image as main, others as false
                             if (!mainImageSet) {
@@ -146,12 +167,17 @@ public class ProductServiceImpl implements ProductService {
                     .build());
         }
 
-        // 5. Construct Final Response
+        // 5. Construct Final Response with Hints
         return ProductResponse.builder()
                 .id(product.getId())
                 .productUuid(product.getProductUuid())
                 .productName(product.getProductName())
                 .description(product.getDescription())
+                // --- SET HINTS HERE ---
+                .minPrice(minPrice)
+                .maxPrice(maxPrice)
+                .availableOptions(optionsSummary)
+                // ----------------------
                 .categoryId(product.getCategoryId())
                 .isActive(product.isActive())
                 .variants(variantResponses)
@@ -159,24 +185,115 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    public ProductResponse getMyProduct(UUID productUuid, UserDetails sellerDetails) {
+        User seller = (User) sellerDetails;
+
+        // A. Get Parent Product
+        Product product = productRepo.findByUuidAndSellerId(productUuid, seller.getId())
+                .orElseThrow(() -> new IllegalStateException("Product not found"));
+
+        // B. Get All Variants
+        List<ProductVariant> variants = productVariantRepo.findAllByProductId(product.getId());
+
+        // Hints Calculation
+        BigDecimal minPrice = null;
+        BigDecimal maxPrice = null;
+        Map<String, Set<String>> optionsSummary = new HashMap<>();
+
+        List<ProductResponse.VariantResponse> variantResponses = new ArrayList<>();
+
+        // C. Loop Variants to build structure
+        for (ProductVariant variant : variants) {
+
+            // Calc Price Range
+            if (minPrice == null || variant.getPrice().compareTo(minPrice) < 0) minPrice = variant.getPrice();
+            if (maxPrice == null || variant.getPrice().compareTo(maxPrice) > 0) maxPrice = variant.getPrice();
+
+            // Fetch Values linked to this Variant (Using the Repo method we added)
+            List<ProductOptionValue> values = productVariantValuesRepo.findValuesByVariantId(variant.getId());
+
+            List<ProductResponse.OptionResponse> optionResponses = new ArrayList<>();
+
+            for (ProductOptionValue val : values) {
+                // Fetch Option Name (e.g., "Material")
+                ProductOption option = productOptionRepo.findById(val.getOptionId()); // Ensure you have findById in Repo
+
+                // Fetch Images for this Value (e.g., Wooden images)
+                List<ProductImage> images = productImageRepo.findAllByOptionValueId(val.getId());
+                List<String> imageUrls = images.stream().map(ProductImage::getImageUrl).collect(Collectors.toList());
+
+                // Add to Summary for Hints
+                optionsSummary.computeIfAbsent(option.getOptionName(), k -> new HashSet<>()).add(val.getValueName());
+
+                optionResponses.add(ProductResponse.OptionResponse.builder()
+                        .optionName(option.getOptionName())
+                        .valueName(val.getValueName())
+                        .images(imageUrls)
+                        .build());
+            }
+
+            variantResponses.add(ProductResponse.VariantResponse.builder()
+                    .variantUuid(variant.getVariantUuid())
+                    .price(variant.getPrice())
+                    .stockQuantity(variant.getStockQuantity())
+                    .sku(variant.getSku())
+                    .options(optionResponses)
+                    .build());
+        }
+
+        return ProductResponse.builder()
+                .id(product.getId())
+                .productUuid(product.getProductUuid())
+                .productName(product.getProductName())
+                .description(product.getDescription())
+                .minPrice(minPrice)
+                .maxPrice(maxPrice)
+                .availableOptions(optionsSummary)
+                .categoryId(product.getCategoryId())
+                .isActive(product.isActive())
+                .variants(variantResponses)
+                .build();
+    }
+
+    // =================================================================
+    // 2. UPDATE PRODUCT (Updates Main Info)
+    // =================================================================
+    @Override
+    @Transactional
+    public ProductResponse updateProduct(UUID productUuid, UpdateProductRequest request, UserDetails sellerDetails) {
+        User seller = (User) sellerDetails;
+        Product product = productRepo.findByUuidAndSellerId(productUuid, seller.getId())
+                .orElseThrow(() -> new IllegalStateException("Product not found"));
+
+        // Update fields if they are not null
+        if (request.getProductName() != null) product.setProductName(request.getProductName());
+        if (request.getDescription() != null) product.setDescription(request.getDescription());
+
+        // NOTE: Updating variants is complex. Usually, we recommend deleting
+        // the old product and creating a new one if the variants change completely.
+        // Or you can add specific "updateVariant" methods later.
+
+        productRepo.update(product); // Ensure you have an 'update' method in ProductRepo
+
+        // Return the updated full response
+        return getMyProduct(productUuid, sellerDetails);
+    }
+
+    // =================================================================
+    // 3. DELETE PRODUCT (Cascade handles everything!)
+    // =================================================================
+    @Override
     @Transactional
     public void deleteProduct(UUID productUuid, UserDetails sellerDetails) {
         User seller = (User) sellerDetails;
+
+        // 1. Check ownership
         Product product = productRepo.findByUuidAndSellerId(productUuid, seller.getId())
                 .orElseThrow(() -> new IllegalStateException("Product not found or permission denied."));
+
+        // 2. Delete Parent
+        // Because your Schema.sql has "ON DELETE CASCADE" on variants, options, images,
+        // deleting this ONE row will automatically remove ALL related data from the DB.
         productRepo.deleteByUuidAndSellerId(product.getProductUuid(), seller.getId());
-    }
-
-    @Override
-    public Product getMyProduct(UUID productUuid, UserDetails sellerDetails) {
-        User seller = (User) sellerDetails;
-        return productRepo.findByUuidAndSellerId(productUuid, seller.getId())
-                .orElseThrow(() -> new IllegalStateException("Product not found or permission denied."));
-    }
-
-    @Override
-    public List<Product> getMyProducts(UserDetails sellerDetails) {
-        User seller = (User) sellerDetails;
-        return productRepo.findAllBySellerId(seller.getId());
     }
 }

@@ -3,8 +3,9 @@ package com.example.buyfast.modules.product.dto;
 import lombok.Builder;
 import lombok.Data;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Data
@@ -14,6 +15,13 @@ public class ProductResponse {
     private UUID productUuid;
     private String productName;
     private String description;
+
+    // --- NEW HINT FIELDS (You missed these) ---
+    private BigDecimal minPrice;
+    private BigDecimal maxPrice;
+    private Map<String, Set<String>> availableOptions;
+    // ------------------------------------------
+
     private Long categoryId;
     private boolean isActive;
     private List<VariantResponse> variants;
@@ -31,8 +39,8 @@ public class ProductResponse {
     @Data
     @Builder
     public static class OptionResponse {
-        private String optionName; // e.g., "Material"
-        private String valueName;  // e.g., "Wooden"
-        private List<String> images; // List of image URLs
+        private String optionName;
+        private String valueName;
+        private List<String> images;
     }
 }

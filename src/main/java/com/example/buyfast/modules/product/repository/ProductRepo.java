@@ -48,4 +48,7 @@ public interface ProductRepo {
 
     @Update("UPDATE product SET is_active = #{isActive} WHERE product_uuid = #{uuid}")
     void updateProductActiveStatus(@Param("uuid") UUID uuid, @Param("isActive") boolean isActive);
+    @Update("UPDATE product SET product_name = #{productName}, description = #{description}, " +
+            "category_id = #{categoryId}, is_active = #{isActive} WHERE id = #{id}")
+    void update(Product product);
 }

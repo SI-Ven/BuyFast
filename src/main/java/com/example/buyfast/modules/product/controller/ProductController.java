@@ -3,6 +3,7 @@ package com.example.buyfast.modules.product.controller;
 import com.example.buyfast.common.ApiResponse;
 import com.example.buyfast.modules.product.dto.CreateProductRequest;
 import com.example.buyfast.modules.product.dto.ProductResponse;
+import com.example.buyfast.modules.product.dto.UpdateProductRequest;
 import com.example.buyfast.modules.product.model.Product;
 import com.example.buyfast.modules.product.service.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -39,24 +40,6 @@ public class ProductController {
         );
     }
 
-    @GetMapping
-    @Operation(summary = "Get all products for the logged-in seller")
-    public ResponseEntity<ApiResponse<List<Product>>> getMyProducts(
-            @AuthenticationPrincipal UserDetails sellerDetails) {
-
-        List<Product> products = productService.getMyProducts(sellerDetails);
-        return ResponseEntity.ok(ApiResponse.success("Retrieved all my products.", products));
-    }
-
-    @GetMapping("/{productUuid}")
-    @Operation(summary = "Get a specific product by UUID")
-    public ResponseEntity<ApiResponse<Product>> getMyProduct(
-            @PathVariable UUID productUuid,
-            @AuthenticationPrincipal UserDetails sellerDetails) {
-
-        Product product = productService.getMyProduct(productUuid, sellerDetails);
-        return ResponseEntity.ok(ApiResponse.success("Product retrieved.", product));
-    }
 
     @DeleteMapping("/{productUuid}")
     @Operation(summary = "Delete a product")
@@ -66,5 +49,27 @@ public class ProductController {
 
         productService.deleteProduct(productUuid, sellerDetails);
         return ResponseEntity.ok(ApiResponse.ok("Product deleted successfully."));
+    }
+    @GetMapping("/{productUuid}")
+    @Operation(summary = "Get a specific product details")
+    public ResponseEntity<ApiResponse<ProductResponse>> getMyProduct(
+            @PathVariable UUID productUuid,
+            @AuthenticationPrincipal UserDetails sellerDetails) {
+
+        // Now calling the method that returns the full DTO
+        ProductResponse response = productService.getMyProduct(productUuid, sellerDetails);
+
+        return ResponseEntity.ok(ApiResponse.success("Product retrieved.", response));
+    }
+
+    @PutMapping("/{productUuid}")
+    @Operation(summary = "Update product main info")
+    public ResponseEntity<ApiResponse<ProductResponse>> updateProduct(
+            @PathVariable UUID productUuid,
+            @RequestBody UpdateProductRequest request,
+            @AuthenticationPrincipal UserDetails sellerDetails) {
+
+        ProductResponse response = productService.updateProduct(productUuid, request, sellerDetails);
+        return ResponseEntity.ok(ApiResponse.success("Product updated successfully.", response));
     }
 }

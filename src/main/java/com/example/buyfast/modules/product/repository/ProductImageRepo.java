@@ -2,6 +2,8 @@ package com.example.buyfast.modules.product.repository;
 
 import com.example.buyfast.modules.product.model.ProductImage;
 import org.apache.ibatis.annotations.*;
+
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -22,4 +24,10 @@ public interface ProductImageRepo {
     // --- NEW METHOD ---
     @Select("SELECT COUNT(*) > 0 FROM product_image WHERE image_url = #{url} AND option_value_id = #{valueId}")
     boolean existsByUrlAndValueId(@Param("url") String url, @Param("valueId") Long valueId);
+
+    @Select("SELECT * FROM product_image WHERE option_value_id = #{valueId}")
+    List<ProductImage> findAllByOptionValueId(@Param("valueId") Long valueId);
+
+    @Select("SELECT * FROM product_image WHERE product_id = #{productId}")
+    List<ProductImage> findAllByProductId(@Param("productId") Long productId);
 }

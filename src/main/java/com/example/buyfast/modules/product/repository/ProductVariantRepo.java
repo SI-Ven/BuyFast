@@ -3,6 +3,7 @@ package com.example.buyfast.modules.product.repository;
 import com.example.buyfast.modules.product.model.ProductVariant;
 import org.apache.ibatis.annotations.*;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -16,4 +17,7 @@ public interface ProductVariantRepo {
 
     @Select("SELECT * FROM product_variant WHERE variant_uuid = #{variantUuid}")
     Optional<ProductVariant> findByUuid(UUID variantUuid);
+
+    @Select("SELECT * FROM product_variant WHERE product_id = #{productId}")
+    List<ProductVariant> findAllByProductId(@Param("productId") Long productId);
 }
