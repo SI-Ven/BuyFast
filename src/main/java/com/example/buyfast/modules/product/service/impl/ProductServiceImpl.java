@@ -265,18 +265,113 @@ public class ProductServiceImpl implements ProductService {
         Product product = productRepo.findByUuidAndSellerId(productUuid, seller.getId())
                 .orElseThrow(() -> new IllegalStateException("Product not found"));
 
-        // Update fields if they are not null
+        // 1. Update Base Fields if present
         if (request.getProductName() != null) product.setProductName(request.getProductName());
         if (request.getDescription() != null) product.setDescription(request.getDescription());
+        if (request.getIsActive() != null) product.setActive(request.getIsActive());
 
-        // NOTE: Updating variants is complex. Usually, we recommend deleting
-        // the old product and creating a new one if the variants change completely.
-        // Or you can add specific "updateVariant" methods later.
+        // 2. Update Category if provided
+        if (request.getCategoryUuid() != null) {
+            Category category = categoryRepo.findByCategoryUuid(request.getCategoryUuid())
+                    .orElseThrow(() -> new IllegalArgumentException("Category not found"));
+            product.setCategoryId(category.getId());
+        }
 
-        productRepo.update(product); // Ensure you have an 'update' method in ProductRepo
+        // Save changes to base product
+        productRepo.update(product);
 
-        // Return the updated full response
+        // 3. Update Variants if provided (Full Replacement Strategy)
+        if (request.getVariants() != null && !request.getVariants().isEmpty()) {
+            // A. Clean up old data
+            // We delete images, variants, and options.
+            // Cascade in DB usually handles values, but we clear parent structures here to be safe and clean.
+            productImageRepo.deleteAllByProductId(product.getId());
+            productVariantRepo.deleteAllByProductId(product.getId());
+            productOptionRepo.deleteAllByProductId(product.getId());
+
+            // B. Create new variants
+            processVariants(product, request.getVariants());
+        }
+
+        // 4. Return updated response
         return getMyProduct(productUuid, sellerDetails);
+    }
+
+    /**
+     * Helper method to process and save variants, options, and images.
+     * Used by both create and update methods to ensure consistency.
+     */
+    private void processVariants(Product product, List<VariantRequest> variants) {
+        boolean mainImageSet = false; // Tracks if we have set a main image yet globally for the product
+
+        for (VariantRequest variantReq : variants) {
+            ProductVariant variant = new ProductVariant();
+            variant.setVariantUuid(uuidService.generateUuid());
+            variant.setProductId(product.getId());
+            variant.setPrice(variantReq.getPrice());
+            variant.setStockQuantity(variantReq.getStockQuantity());
+            variant.setActive(true);
+
+            // Generate simple SKU
+            String sku = product.getProductName().substring(0, Math.min(3, product.getProductName().length())).toUpperCase()
+                    + "-" + variant.getVariantUuid().toString().substring(0, 8);
+            variant.setSku(sku);
+
+            productVariantRepo.insert(variant);
+
+            // Process Options
+            for (OptionValueRequest optionReq : variantReq.getOptions()) {
+                // Save/Get Option (e.g., "Material")
+                ProductOption option = productOptionRepo.findByProductIdAndOptionName(product.getId(), optionReq.getOptionName())
+                        .orElseGet(() -> {
+                            ProductOption newOpt = new ProductOption();
+                            newOpt.setOptionUuid(uuidService.generateUuid());
+                            newOpt.setProductId(product.getId());
+                            newOpt.setOptionName(optionReq.getOptionName());
+                            productOptionRepo.insert(newOpt);
+                            return newOpt;
+                        });
+
+                // Save/Get Value (e.g., "Wooden")
+                ProductOptionValue value = productOptionValueRepo.findByOptionIdAndValueName(option.getId(), optionReq.getValueName())
+                        .orElseGet(() -> {
+                            ProductOptionValue newVal = new ProductOptionValue();
+                            newVal.setValueUuid(uuidService.generateUuid());
+                            newVal.setOptionId(option.getId());
+                            newVal.setValueName(optionReq.getValueName());
+                            productOptionValueRepo.insert(newVal);
+                            return newVal;
+                        });
+
+                // Link Variant to Value
+                productVariantValuesRepo.insert(variant.getId(), value.getId());
+
+                // Save Images & Handle Main Image
+                if (optionReq.getImgUrls() != null) {
+                    for (String url : optionReq.getImgUrls()) {
+                        // Avoid duplicates for the same value
+                        if (!productImageRepo.existsByUrlAndValueId(url, value.getId())) {
+                            ProductImage image = new ProductImage();
+                            image.setImageUuid(uuidService.generateUuid());
+                            image.setProductId(product.getId());
+                            image.setImageUrl(url);
+                            image.setOptionValueId(value.getId());
+                            image.setVariantId(variant.getId());
+
+                            // Logic to ensure only one main image per product
+                            if (!mainImageSet) {
+                                image.setIsMain(true);
+                                mainImageSet = true; // Update flag
+                            } else {
+                                image.setIsMain(false);
+                            }
+
+                            productImageRepo.insert(image);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // =================================================================
@@ -295,5 +390,13 @@ public class ProductServiceImpl implements ProductService {
         // Because your Schema.sql has "ON DELETE CASCADE" on variants, options, images,
         // deleting this ONE row will automatically remove ALL related data from the DB.
         productRepo.deleteByUuidAndSellerId(product.getProductUuid(), seller.getId());
+    }
+    @Override
+    public List<ProductResponse> getAllProductsForHome(int page, int size) {
+        if (page < 1) page = 1;
+        int offset = (page - 1) * size;
+
+        // This executes the optimized SQL query
+        return productRepo.findAllActiveProductsSummary(size, offset);
     }
 }

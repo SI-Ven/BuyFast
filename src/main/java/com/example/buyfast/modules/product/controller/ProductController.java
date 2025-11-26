@@ -72,4 +72,14 @@ public class ProductController {
         ProductResponse response = productService.updateProduct(productUuid, request, sellerDetails);
         return ResponseEntity.ok(ApiResponse.success("Product updated successfully.", response));
     }
+
+    @GetMapping("/public")
+    @Operation(summary = "Get all products for Home Page (Public)")
+    public ResponseEntity<ApiResponse<List<ProductResponse>>> getAllProducts(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        List<ProductResponse> products = productService.getAllProductsForHome(page, size);
+        return ResponseEntity.ok(ApiResponse.success("Products retrieved successfully.", products));
+    }
 }

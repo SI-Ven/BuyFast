@@ -27,7 +27,7 @@ public interface ProductService {
     ProductResponse updateProduct(UUID productUuid, UpdateProductRequest request, UserDetails sellerDetails);
 
     ProductResponse getMyProduct(UUID productUuid, UserDetails sellerDetails);
-
+    List<ProductResponse> getAllProductsForHome(int page, int size);
 
     // We will skip UpdateProduct for now as it's very complex
     // Product updateProduct(UUID productUuid, UpdateProductRequest request, UserDetails sellerDetails);

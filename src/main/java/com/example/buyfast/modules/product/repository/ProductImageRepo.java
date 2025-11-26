@@ -21,7 +21,6 @@ public interface ProductImageRepo {
     @Delete("DELETE FROM product_image WHERE image_uuid = #{imageUuid}")
     void deleteByUuid(UUID imageUuid);
 
-    // --- NEW METHOD ---
     @Select("SELECT COUNT(*) > 0 FROM product_image WHERE image_url = #{url} AND option_value_id = #{valueId}")
     boolean existsByUrlAndValueId(@Param("url") String url, @Param("valueId") Long valueId);
 
@@ -30,4 +29,8 @@ public interface ProductImageRepo {
 
     @Select("SELECT * FROM product_image WHERE product_id = #{productId}")
     List<ProductImage> findAllByProductId(@Param("productId") Long productId);
+
+    // --- NEW METHOD FOR UPDATE LOGIC ---
+    @Delete("DELETE FROM product_image WHERE product_id = #{productId}")
+    void deleteAllByProductId(@Param("productId") Long productId);
 }

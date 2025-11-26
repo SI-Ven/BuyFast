@@ -20,4 +20,8 @@ public interface ProductVariantRepo {
 
     @Select("SELECT * FROM product_variant WHERE product_id = #{productId}")
     List<ProductVariant> findAllByProductId(@Param("productId") Long productId);
+
+    // --- NEW METHOD FOR UPDATE LOGIC ---
+    @Delete("DELETE FROM product_variant WHERE product_id = #{productId}")
+    void deleteAllByProductId(@Param("productId") Long productId);
 }

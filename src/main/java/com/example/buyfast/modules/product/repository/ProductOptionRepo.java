@@ -14,6 +14,11 @@ public interface ProductOptionRepo {
 
     @Select("SELECT * FROM product_option WHERE product_id = #{productId} AND option_name = #{optionName}")
     Optional<ProductOption> findByProductIdAndOptionName(@Param("productId") Long productId, @Param("optionName") String optionName);
+
     @Select("SELECT * FROM product_option WHERE id = #{optionId}")
     ProductOption findById(Long optionId);
+
+    // --- NEW METHOD FOR UPDATE LOGIC ---
+    @Delete("DELETE FROM product_option WHERE product_id = #{productId}")
+    void deleteAllByProductId(@Param("productId") Long productId);
 }
