@@ -4,6 +4,7 @@ import com.example.buyfast.modules.category.model.Category;
 import com.example.buyfast.modules.category.repository.CategoryRepo;
 import com.example.buyfast.modules.product.dto.CreateProductRequest;
 import com.example.buyfast.modules.product.dto.OptionValueRequest;
+import com.example.buyfast.modules.product.dto.ProductResponse;
 import com.example.buyfast.modules.product.dto.VariantRequest;
 import com.example.buyfast.modules.product.model.*;
 import com.example.buyfast.modules.product.repository.*;
@@ -15,6 +16,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -35,14 +37,14 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public Product createProduct(CreateProductRequest request, UserDetails sellerDetails) {
+    public ProductResponse createProduct(CreateProductRequest request, UserDetails sellerDetails) {
         User seller = (User) sellerDetails;
 
-        // 1. --- HANDLE CATEGORY ---
+        // 1. Verify Category
         Category category = categoryRepo.findByCategoryUuid(request.getCategoryUuid())
-                .orElseThrow(() -> new IllegalArgumentException("Category not found with UUID: " + request.getCategoryUuid()));
+                .orElseThrow(() -> new IllegalArgumentException("Category not found"));
 
-        // 2. Create and Save Parent Product
+        // 2. Save Parent Product
         Product product = new Product();
         product.setProductUuid(uuidService.generateUuid());
         product.setProductName(request.getProductName());
@@ -51,8 +53,11 @@ public class ProductServiceImpl implements ProductService {
         product.setCategoryId(category.getId());
         product.setDescription(request.getDescription());
         product.setActive(true);
-
         productRepo.insert(product);
+
+        // Prepare lists for Response
+        List<ProductResponse.VariantResponse> variantResponses = new ArrayList<>();
+        boolean mainImageSet = false; // <--- FIX FOR MAIN IMAGE
 
         // 3. Process Variants
         for (VariantRequest variantReq : request.getVariants()) {
@@ -63,11 +68,17 @@ public class ProductServiceImpl implements ProductService {
             variant.setStockQuantity(variantReq.getStockQuantity());
             variant.setActive(true);
 
+            // Generate simple SKU
+            String sku = request.getProductName().substring(0, 3).toUpperCase() + "-" + variant.getVariantUuid().toString().substring(0, 8);
+            variant.setSku(sku);
+
             productVariantRepo.insert(variant);
+
+            List<ProductResponse.OptionResponse> optionResponses = new ArrayList<>();
 
             // 4. Process Options
             for (OptionValueRequest optionReq : variantReq.getOptions()) {
-                // A. Get or Create Option Group
+                // A. Save/Get Option (e.g., "Material")
                 ProductOption option = productOptionRepo.findByProductIdAndOptionName(product.getId(), optionReq.getOptionName())
                         .orElseGet(() -> {
                             ProductOption newOpt = new ProductOption();
@@ -78,7 +89,7 @@ public class ProductServiceImpl implements ProductService {
                             return newOpt;
                         });
 
-                // B. Get or Create Option Value
+                // B. Save/Get Value (e.g., "Wooden")
                 ProductOptionValue value = productOptionValueRepo.findByOptionIdAndValueName(option.getId(), optionReq.getValueName())
                         .orElseGet(() -> {
                             ProductOptionValue newVal = new ProductOptionValue();
@@ -89,28 +100,62 @@ public class ProductServiceImpl implements ProductService {
                             return newVal;
                         });
 
-                // C. Link Variant to this Value
                 productVariantValuesRepo.insert(variant.getId(), value.getId());
 
-                // D. --- SAVE IMAGES FOR THIS VALUE ---
-                if (optionReq.getImgUrls() != null && !optionReq.getImgUrls().isEmpty()) {
+                // C. Save Images & Handle Main Image
+                List<String> savedImageUrls = new ArrayList<>();
+                if (optionReq.getImgUrls() != null) {
                     for (String url : optionReq.getImgUrls()) {
-                        // Prevent duplicates
                         if (!productImageRepo.existsByUrlAndValueId(url, value.getId())) {
                             ProductImage image = new ProductImage();
                             image.setImageUuid(uuidService.generateUuid());
                             image.setProductId(product.getId());
                             image.setImageUrl(url);
-                            image.setIsMain(false);
                             image.setOptionValueId(value.getId());
+                            image.setVariantId(variant.getId()); // Link to variant too for safety
+
+                            // FIX: Set first image as main, others as false
+                            if (!mainImageSet) {
+                                image.setIsMain(true);
+                                mainImageSet = true;
+                            } else {
+                                image.setIsMain(false);
+                            }
 
                             productImageRepo.insert(image);
+                            savedImageUrls.add(url);
                         }
                     }
                 }
+
+                // Add to Option Response
+                optionResponses.add(ProductResponse.OptionResponse.builder()
+                        .optionName(option.getOptionName())
+                        .valueName(value.getValueName())
+                        .images(savedImageUrls)
+                        .build());
             }
+
+            // Add to Variant Response
+            variantResponses.add(ProductResponse.VariantResponse.builder()
+                    .variantUuid(variant.getVariantUuid())
+                    .price(variant.getPrice())
+                    .stockQuantity(variant.getStockQuantity())
+                    .sku(variant.getSku())
+                    .options(optionResponses)
+                    .build());
         }
-        return product;
+
+        // 5. Construct Final Response
+        return ProductResponse.builder()
+                .id(product.getId())
+                .productUuid(product.getProductUuid())
+                .productName(product.getProductName())
+                .description(product.getDescription())
+                .categoryId(product.getCategoryId())
+                .isActive(product.isActive())
+                .variants(variantResponses)
+                .build();
     }
 
     @Override
