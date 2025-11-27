@@ -18,8 +18,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.UUID;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -29,69 +31,72 @@ public class OrderServiceImpl implements OrderService {
     private final OrderItemRepo orderItemRepo;
     private final AddressRepo addressRepo;
     private final UserRepo userRepo;
-    private final ProductVariantRepo productVariantRepo; // To get real prices
+    private final ProductVariantRepo productVariantRepo;
 
     @Override
     @Transactional
     public Order createOrder(CreateOrderRequest request, UserDetails userDetails) {
+        // 1. Validate User
         User user = userRepo.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        // 1. Fetch Source Address (The logic we discussed)
+        // 2. Fetch Address Snapshot
         ShippingAddress address = addressRepo.findByUuidAndUser(request.getAddressUuid(), user.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Shipping address not found"));
 
-        // 2. Initialize Order Object with SNAPSHOT data
+        // 3. PRE-CALCULATE Total Price & Prepare Items
+        // We do this BEFORE saving the order so the DB gets the correct total immediately.
+        BigDecimal finalTotal = BigDecimal.ZERO;
+        List<OrderItem> itemsToSave = new ArrayList<>();
+
+        for (CreateOrderRequest.OrderItemRequest itemReq : request.getItems()) {
+            ProductVariant variant = productVariantRepo.findById(itemReq.getProductVariantId())
+                    .orElseThrow(() -> new IllegalArgumentException("Product variant not found: " + itemReq.getProductVariantId()));
+
+            // Check Stock (Optional but recommended)
+            if (variant.getStockQuantity() < itemReq.getQuantity()) {
+                throw new IllegalArgumentException("Insufficient stock for SKU: " + variant.getSku());
+            }
+
+            BigDecimal lineItemTotal = variant.getPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
+            finalTotal = finalTotal.add(lineItemTotal);
+
+            // Prepare the item object (without order ID yet)
+            itemsToSave.add(OrderItem.builder()
+                    .itemUuid(UUID.randomUUID())
+                    .productId(variant.getProductId())
+                    .quantity(itemReq.getQuantity())
+                    .pricePerUnit(variant.getPrice()) // Snapshot price
+                    .totalItemPrice(lineItemTotal)
+                    .build());
+        }
+
+        // 4. Create and Save Order (With Correct Price)
         Order order = Order.builder()
                 .orderUuid(UUID.randomUUID())
                 .userId(user.getId())
+                // --- SNAPSHOT ADDRESS ---
                 .shippingFullName(address.getFullName())
                 .shippingAddressLine1(address.getAddressLine1())
                 .shippingCity(address.getCity())
                 .shippingCountry(address.getCountry())
-                .shippingPhone(address.getPhoneNumber()) // Make sure you added this field to ShippingAddress!
+                .shippingPhone(address.getPhoneNumber())
                 .originalShippingAddressId(address.getId())
+                // ------------------------
                 .status("pending")
                 .paymentMethod(request.getPaymentMethod())
-                .totalPrice(BigDecimal.ZERO) // Will calculate below
+                .totalPrice(finalTotal) // ✅ Correct Price
+                .createdAt(LocalDateTime.now()) // <--- SET THIS
+                .updatedAt(LocalDateTime.now())
                 .build();
 
-        // 3. Save Order first to get the ID (needed for items)
         orderRepo.save(order);
 
-        // 4. Process Items
-        BigDecimal calculatedTotal = BigDecimal.ZERO;
-
-        for (CreateOrderRequest.OrderItemRequest itemReq : request.getItems()) {
-            // Fetch Variant to get REAL PRICE
-            ProductVariant variant = productVariantRepo.findById(itemReq.getProductVariantId())
-                    .orElseThrow(() -> new IllegalArgumentException("Product variant not found: " + itemReq.getProductVariantId()));
-
-            BigDecimal itemTotal = variant.getPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
-            calculatedTotal = calculatedTotal.add(itemTotal);
-
-            // Create Order Item
-            OrderItem orderItem = OrderItem.builder()
-                    .itemUuid(UUID.randomUUID())
-                    .orderId(order.getId())
-                    .productId(variant.getProductId())
-                    .quantity(itemReq.getQuantity())
-                    .pricePerUnit(variant.getPrice()) // Snapshot the price too!
-                    .totalItemPrice(itemTotal)
-                    .build();
-
-            orderItemRepo.save(orderItem);
+        // 5. Save Order Items (Now that we have Order ID)
+        for (OrderItem item : itemsToSave) {
+            item.setOrderId(order.getId());
+            orderItemRepo.save(item);
         }
-
-        // 5. Update Order Total Price
-        // (You might need an update method in Repo, or just set it before save if you calculate first.
-        // Here I'll assume we update it after or calculate before saving order.
-        // For simplicity, let's pretend we calculated before or we do a quick update)
-        // Ideally, move step 3 to here, after calculation.
-
-        // RE-SAVING Logic (Simplest fix for this flow):
-        // Since we already inserted, we ideally execute an update.
-        // For now, let's assume you add an @Update method to OrderRepo for total_price.
 
         return order;
     }
@@ -101,5 +106,43 @@ public class OrderServiceImpl implements OrderService {
         User user = userRepo.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
         return orderRepo.findAllByUserId(user.getId());
+    }
+
+    @Override
+    @Transactional
+    public void cancelOrder(UUID orderUuid, UserDetails userDetails) {
+        User user = userRepo.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        Order order = orderRepo.findByUuid(orderUuid)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+
+        // SECURITY: User can only cancel their OWN order
+        if (!order.getUserId().equals(user.getId())) {
+            throw new SecurityException("Access denied: You cannot cancel this order.");
+        }
+
+        // LOGIC: Can only cancel if currently 'pending'
+        if (!"pending".equalsIgnoreCase(order.getStatus())) {
+            throw new IllegalStateException("Cannot cancel order. Current status is: " + order.getStatus());
+        }
+
+        orderRepo.updateStatus(order.getId(), "cancelled");
+    }
+
+    // ==========================================================
+    // 2️⃣ ADMIN: UPDATE STATUS (Shipped, Delivered, etc.)
+    // ==========================================================
+    @Override
+    @Transactional
+    public void updateOrderStatus(UUID orderUuid, String newStatus) {
+        Order order = orderRepo.findByUuid(orderUuid)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+
+        // Validate Status (Optional, but good practice)
+        // List<String> validStatuses = Arrays.asList("pending", "shipped", "delivered", "cancelled", "rejected");
+        // if (!validStatuses.contains(newStatus.toLowerCase())) { ... }
+
+        orderRepo.updateStatus(order.getId(), newStatus);
     }
 }

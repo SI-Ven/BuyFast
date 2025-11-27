@@ -13,6 +13,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/orders")
@@ -37,5 +38,24 @@ public class OrderController {
             @AuthenticationPrincipal UserDetails userDetails) {
 
         return ResponseEntity.ok(ApiResponse.success("Orders retrieved", orderService.getMyOrders(userDetails)));
+    }
+    @PutMapping("/{orderUuid}/status")
+    @Operation(summary = "Update order status (Shipped, Delivered, etc.)")
+    public ResponseEntity<ApiResponse<Void>> updateOrderStatus(
+            @PathVariable UUID orderUuid,
+            @RequestParam String status) { // Or use a @RequestBody DTO if you prefer
+
+        orderService.updateOrderStatus(orderUuid, status);
+        return ResponseEntity.ok(ApiResponse.success("Order status updated to " + status, null));
+    }
+
+    @PutMapping("/{orderUuid}/cancel")
+    @Operation(summary = "Cancel my order")
+    public ResponseEntity<ApiResponse<Void>> cancelOrder(
+            @PathVariable UUID orderUuid,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        orderService.cancelOrder(orderUuid, userDetails);
+        return ResponseEntity.ok(ApiResponse.success("Order cancelled successfully", null));
     }
 }
