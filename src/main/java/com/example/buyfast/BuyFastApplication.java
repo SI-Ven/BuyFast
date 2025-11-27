@@ -30,7 +30,8 @@ import org.springframework.context.annotation.Configuration;
         "com.example.buyfast.modules.verify.repository",
         "com.example.buyfast.modules.company.repository",
         "com.example.buyfast.modules.product.repository",
-        "com.example.buyfast.modules.auth.repository" // <--- THIS WAS MISSING
+        "com.example.buyfast.modules.auth.repository",
+        "com.example.buyfast.modules.favorite.repository"
 })
 public class BuyFastApplication {
 

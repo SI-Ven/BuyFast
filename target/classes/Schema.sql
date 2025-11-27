@@ -402,6 +402,17 @@ CREATE TABLE sms_otp (
                          expires_at TIMESTAMP NOT NULL
 );
 
+CREATE TABLE favorite (
+                          id BIGSERIAL PRIMARY KEY,
+                          favorite_uuid UUID NOT NULL UNIQUE,
+                          user_id BIGINT NOT NULL,
+                          product_id BIGINT NOT NULL,
+                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                          CONSTRAINT fk_favorite_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                          CONSTRAINT fk_favorite_product FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE CASCADE,
+                          UNIQUE(user_id, product_id) -- Prevent duplicate favorites
+);
+
 -- =======================================================
 -- DATA INSERTION (Requires main_category data to exist first)
 -- =======================================================

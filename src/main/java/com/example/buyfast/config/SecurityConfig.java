@@ -38,6 +38,8 @@ public class SecurityConfig {
                                 "/error" // <-- CRITICAL FIX: Allow Spring Boot's error page
                         ).permitAll()
 
+                        .requestMatchers(HttpMethod.POST,"/api/v1/favorites/**").authenticated()
+
                         // --- SUPER ADMIN ---
                         .requestMatchers(HttpMethod.POST, "/api/v1/verify/approve/**", "/api/v1/verify/reject/**")
                         .hasAuthority("APPROVE_VERIFICATION")
