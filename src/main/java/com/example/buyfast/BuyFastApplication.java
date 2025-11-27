@@ -31,7 +31,8 @@ import org.springframework.context.annotation.Configuration;
         "com.example.buyfast.modules.company.repository",
         "com.example.buyfast.modules.product.repository",
         "com.example.buyfast.modules.auth.repository",
-        "com.example.buyfast.modules.favorite.repository"
+        "com.example.buyfast.modules.favorite.repository",
+        "com.example.buyfast.modules.address.repository"
 })
 public class BuyFastApplication {
 

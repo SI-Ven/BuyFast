@@ -12,4 +12,6 @@ public interface FavoriteService {
     Favorite addFavorite(UUID productUuid, UserDetails userDetails);
 
     List<ProductResponse> getMyFavorites(UserDetails userDetails);
+
+    void deleteFavorite(UUID productUuid, UserDetails userDetails);
 }

@@ -3,6 +3,7 @@ package com.example.buyfast.modules.favorite.repository;
 import com.example.buyfast.config.mybatis.UuidTypeHandler;
 import com.example.buyfast.modules.favorite.model.Favorite;
 import com.example.buyfast.modules.product.dto.ProductResponse;
+import com.example.buyfast.modules.product.dto.ProductResponse.VariantResponse;
 import org.apache.ibatis.annotations.*;
 import org.apache.ibatis.type.JdbcType;
 
@@ -30,24 +31,56 @@ public interface FavoriteRepo {
     })
     Favorite save(Favorite favorite);
 
-    @Select("SELECT " +
-            "p.id, p.product_uuid, p.product_name, p.description, p.category_id, p.is_active, " +
-            "MIN(pv.price) as minPrice, " +
-            "MAX(pv.price) as maxPrice, " +
-            "(SELECT pi.image_url FROM product_image pi WHERE pi.product_id = p.id AND pi.is_main = true LIMIT 1) as mainImage " +
-            "FROM favorite f " +
-            "JOIN product p ON f.product_id = p.id " +
-            "LEFT JOIN product_variant pv ON p.id = pv.product_id " +
-            "WHERE f.user_id = #{userId} AND p.is_active = true " +
-            "GROUP BY p.id, p.product_uuid, p.product_name, p.description, p.category_id, p.is_active, p.created_at " +
-            "ORDER BY f.created_at DESC")
-    @Results({
-            @Result(property = "productUuid", column = "product_uuid"),
+    @Select("""
+        SELECT 
+            p.id, 
+            p.product_uuid, 
+            p.product_name, 
+            p.description, 
+            p.category_id, 
+            p.is_active
+        FROM favorite f
+        JOIN product p ON f.product_id = p.id
+        WHERE f.user_id = #{userId} AND p.is_active = true
+        ORDER BY f.created_at DESC
+    """)
+    @Results(id = "ProductResponseMap", value = {
+            @Result(property = "id", column = "id"),
+            @Result(property = "productUuid", column = "product_uuid", typeHandler = UuidTypeHandler.class),
             @Result(property = "productName", column = "product_name"),
+            @Result(property = "description", column = "description"),
             @Result(property = "categoryId", column = "category_id"),
-            @Result(property = "minPrice", column = "minPrice"),
-            @Result(property = "maxPrice", column = "maxPrice"),
-            @Result(property = "mainImage", column = "mainImage")
+            @Result(property = "isActive", column = "is_active"),
+
+            // 2. FETCH IMAGE: Uses @One to call the helper method below
+            @Result(property = "mainImage", column = "id",
+                    one = @One(select = "selectMainImageByProductId")),
+
+            // 3. FETCH VARIANTS: Uses @Many to populate the List<VariantResponse>
+            @Result(property = "variants", column = "id",
+                    many = @Many(select = "selectVariantsByProductId"))
     })
     List<ProductResponse> findFavoritesByUserId(Long userId);
+
+    @Select("SELECT image_url FROM product_image WHERE product_id = #{productId} AND is_main = true LIMIT 1")
+    String selectMainImageByProductId(Long productId);
+
+    @Select("""
+        SELECT 
+            variant_uuid, 
+            price, 
+            stock_quantity, 
+            sku 
+        FROM product_variant 
+        WHERE product_id = #{productId}
+    """)
+    @Results({
+            @Result(property = "variantUuid", column = "variant_uuid", typeHandler = UuidTypeHandler.class)
+    })
+    List<VariantResponse> selectVariantsByProductId(Long productId);
+
+    @Delete("""
+DELETE FROM favorite WHERE user_id = #{userId} AND product_id = #{productId}
+""")
+    void deleteFavorite(@Param("userId")Long userId, @Param("productId")Long productId);
 }

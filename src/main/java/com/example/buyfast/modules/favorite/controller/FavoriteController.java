@@ -38,4 +38,13 @@ public class FavoriteController {
         List<ProductResponse> favorites = favoriteService.getMyFavorites(userDetails);
         return ResponseEntity.ok(ApiResponse.success("Favorites retrieved successfully.", favorites));
     }
+
+    @DeleteMapping("/{productUuid}")
+    @Operation(summary = "delete favorite product")
+    public ResponseEntity<ApiResponse<String>> deleteFavorite(
+            @PathVariable UUID productUuid, @AuthenticationPrincipal UserDetails userDetails) {
+
+        favoriteService.deleteFavorite(productUuid,userDetails);
+        return ResponseEntity.ok(ApiResponse.success("Delete Favorite Successfully",null));
+    }
 }

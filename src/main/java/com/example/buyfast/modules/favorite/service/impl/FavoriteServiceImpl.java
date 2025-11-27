@@ -11,8 +11,11 @@ import com.example.buyfast.modules.user.repository.UserRepo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import com.example.buyfast.modules.product.dto.ProductResponse.VariantResponse;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -43,7 +46,40 @@ public class FavoriteServiceImpl implements FavoriteService {
     @Override
     public List<ProductResponse> getMyFavorites(UserDetails userDetails) {
         User user = getUser(userDetails);
-        return favoriteRepo.findFavoritesByUserId(user.getId());
+
+        // 1. Fetch the data (Variants are populated, but minPrice/maxPrice are null)
+        List<ProductResponse> favorites = favoriteRepo.findFavoritesByUserId(user.getId());
+
+        // 2. Post-process: Calculate Min/Max Price in Java
+        for (ProductResponse product : favorites) {
+            List<VariantResponse> variants = product.getVariants();
+
+            if (variants != null && !variants.isEmpty()) {
+                // Calculate Min Price
+                BigDecimal minPrice = variants.stream()
+                        .map(VariantResponse::getPrice)
+                        .min(Comparator.naturalOrder())
+                        .orElse(BigDecimal.ZERO);
+
+                // Calculate Max Price
+                BigDecimal maxPrice = variants.stream()
+                        .map(VariantResponse::getPrice)
+                        .max(Comparator.naturalOrder())
+                        .orElse(BigDecimal.ZERO);
+
+                product.setMinPrice(minPrice);
+                product.setMaxPrice(maxPrice);
+            }
+        }
+
+        return favorites;
+    }
+
+    @Override
+    public void deleteFavorite(UUID productUuid, UserDetails userDetails) {
+        User user = getUser(userDetails);
+        Product product = getProduct(productUuid);
+         favoriteRepo.deleteFavorite(user.getId(),product.getId());
     }
 
 

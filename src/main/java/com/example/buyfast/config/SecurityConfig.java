@@ -39,7 +39,7 @@ public class SecurityConfig {
                         ).permitAll()
 
                         .requestMatchers(HttpMethod.POST,"/api/v1/favorites/**").authenticated()
-
+                       .requestMatchers(HttpMethod.POST," /api/v1/shipping-addres/**").authenticated()
                         // --- SUPER ADMIN ---
                         .requestMatchers(HttpMethod.POST, "/api/v1/verify/approve/**", "/api/v1/verify/reject/**")
                         .hasAuthority("APPROVE_VERIFICATION")
