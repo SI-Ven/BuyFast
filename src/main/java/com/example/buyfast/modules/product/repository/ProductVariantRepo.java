@@ -15,13 +15,16 @@ public interface ProductVariantRepo {
     @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
     void insert(ProductVariant variant);
 
+    // ✅ ADD THIS MISSING METHOD
+    @Select("SELECT * FROM product_variant WHERE id = #{id}")
+    Optional<ProductVariant> findById(Long id);
+
     @Select("SELECT * FROM product_variant WHERE variant_uuid = #{variantUuid}")
     Optional<ProductVariant> findByUuid(UUID variantUuid);
 
     @Select("SELECT * FROM product_variant WHERE product_id = #{productId}")
     List<ProductVariant> findAllByProductId(@Param("productId") Long productId);
 
-    // --- NEW METHOD FOR UPDATE LOGIC ---
     @Delete("DELETE FROM product_variant WHERE product_id = #{productId}")
     void deleteAllByProductId(@Param("productId") Long productId);
 }

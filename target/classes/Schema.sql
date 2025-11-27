@@ -303,13 +303,14 @@ CREATE TABLE shipping_address
     address_uuid   UUID         NOT NULL UNIQUE, -- External ID
     user_id        BIGINT       NOT NULL,        -- FK uses internal ID
     full_name      VARCHAR(255) NOT NULL,
+    phone_number   VARCHAR(20) NOT NULL ,
     address_line_1 VARCHAR(255) NOT NULL,
     city           VARCHAR(100) NOT NULL,
     country        VARCHAR(100) NOT NULL,
     is_default     BOOLEAN DEFAULT FALSE,
     CONSTRAINT fk_shipping_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
-drop table review cascade ;
+drop table shipping_address cascade ;
 
 -- =======================================================
 -- 9️⃣ ORDER TABLE

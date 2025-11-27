@@ -33,6 +33,7 @@ public class AddressServiceImpl implements AddressService {
                 .addressUuid(UUID.randomUUID())
                 .userId(user.getId())
                 .fullName(request.getFullName())
+                .phoneNumber(request.getPhoneNumber())
                 .addressLine1(request.getAddressLine1())
                 .city(request.getCity())
                 .country(request.getCountry())
@@ -71,6 +72,7 @@ public class AddressServiceImpl implements AddressService {
 
         // 3. Update fields
         existingAddress.setFullName(request.getFullName());
+        existingAddress.setPhoneNumber(request.getPhoneNumber());
         existingAddress.setAddressLine1(request.getAddressLine1());
         existingAddress.setCity(request.getCity());
         existingAddress.setCountry(request.getCountry());

@@ -8,6 +8,9 @@ public class AddressRequest {
     @NotBlank(message = "Full name is required")
     private String fullName;
 
+    @NotBlank(message = "Phone number is required") // Important for shipping
+    private String phoneNumber;
+
     @NotBlank(message = "Address line is required")
     private String addressLine1;
 

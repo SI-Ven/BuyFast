@@ -15,6 +15,7 @@ public class ShippingAddress {
     private UUID addressUuid;
     private Long userId;
     private String fullName;
+    private String phoneNumber;
     private String addressLine1;  //No. 123, Street 2004
     private String city;
     private String country;

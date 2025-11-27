@@ -14,8 +14,8 @@ public interface AddressRepo {
     void removeAllDefaultsForUser(Long userId);
 
     @Select("""
-        INSERT INTO shipping_address (address_uuid, user_id, full_name, address_line_1, city, country, is_default)
-        VALUES (#{addressUuid}, #{userId}, #{fullName}, #{addressLine1}, #{city}, #{country}, #{isDefault})
+        INSERT INTO shipping_address (address_uuid, user_id, full_name,phone_number, address_line_1, city, country, is_default)
+        VALUES (#{addressUuid}, #{userId}, #{fullName},#{phoneNumber}, #{addressLine1}, #{city}, #{country}, #{isDefault})
         RETURNING *
     """)
     @Results(id = "AddressMap", value = {
@@ -23,6 +23,7 @@ public interface AddressRepo {
             @Result(property = "addressUuid", column = "address_uuid", typeHandler = UuidTypeHandler.class),
             @Result(property = "userId", column = "user_id"),
             @Result(property = "fullName", column = "full_name"),
+            @Result(property = "phoneNumber",column = "phone_number"),
             @Result(property = "addressLine1", column = "address_line_1"),
             @Result(property = "isDefault", column = "is_default")
     })
@@ -40,6 +41,7 @@ SELECT * FROM shipping_address WHERE user_id = #{userId} ORDER BY is_default DES
     @Update("""
     UPDATE shipping_address
     SET full_name = #{fullName},
+        phone_number = #{phoneNumber},
         address_line_1 = #{addressLine1},
         city = #{city},
         country = #{country},
