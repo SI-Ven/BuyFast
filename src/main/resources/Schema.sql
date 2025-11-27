@@ -315,18 +315,44 @@ drop table review cascade ;
 -- 9️⃣ ORDER TABLE
 -- =======================================================
 CREATE TABLE orders (
-                        id BIGSERIAL PRIMARY KEY, -- Internal ID
-                        order_uuid UUID NOT NULL UNIQUE, -- External ID
-                        user_id BIGINT NOT NULL, -- FK uses internal ID
-                        shipping_address_id BIGINT NOT NULL, -- FK uses internal ID
+                        id BIGSERIAL PRIMARY KEY,                -- Internal ID
+                        order_uuid UUID NOT NULL UNIQUE,         -- External ID
+                        user_id BIGINT NOT NULL,                 -- FK uses internal ID
+
+    -- ========================================================================
+    -- 🚚 SNAPSHOT ADDRESS FIELDS (The "Truth" for this specific order)
+    -- ========================================================================
+    -- We copy these values from the shipping_address table at the moment of checkout.
+                        shipping_full_name VARCHAR(255) NOT NULL,
+                        shipping_address_line_1 VARCHAR(255) NOT NULL,
+                        shipping_city VARCHAR(100) NOT NULL,
+                        shipping_country VARCHAR(100) NOT NULL,
+                        shipping_phone VARCHAR(20),              -- Essential for couriers (grab from user profile or address)
+
+    -- Optional: Keep a link to the original ID for "Buy Again" features,
+    -- but make it nullable in case the user deletes the address later.
+                        original_shipping_address_id BIGINT,
+
+    -- ========================================================================
+    -- 💰 ORDER DETAILS
+    -- ========================================================================
                         total_price DECIMAL(10,2) NOT NULL,
-                        status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'shipped', 'delivered', 'cancelled'
+                        status VARCHAR(20) DEFAULT 'pending',    -- 'pending', 'shipped', 'delivered', 'cancelled'
+                        payment_method VARCHAR(50),
+
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        payment_method VARCHAR(50),
+
+    -- ========================================================================
+    -- 🔗 CONSTRAINTS
+    -- ========================================================================
                         CONSTRAINT fk_order_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                        CONSTRAINT fk_order_address FOREIGN KEY (shipping_address_id) REFERENCES shipping_address(id)
+
+    -- If the user deletes the address from their book, set this column to NULL
+    -- (so the order history doesn't break).
+                        CONSTRAINT fk_order_original_address FOREIGN KEY (original_shipping_address_id) REFERENCES shipping_address(id) ON DELETE SET NULL
 );
+
 
 -- =======================================================
 -- 🔟 ORDER ITEMS TABLE
