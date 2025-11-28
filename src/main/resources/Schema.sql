@@ -310,8 +310,14 @@ CREATE TABLE shipping_address
     is_default     BOOLEAN DEFAULT FALSE,
     CONSTRAINT fk_shipping_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
-drop table shipping_address cascade ;
-
+CREATE TABLE product_tier_pricing (
+                                      id BIGSERIAL PRIMARY KEY,
+                                      product_variant_id BIGINT NOT NULL,
+                                      min_quantity INT NOT NULL, -- e.g., 50
+                                      price DECIMAL(10,2) NOT NULL, -- e.g., $9.00 (instead of $10.00)
+                                      CONSTRAINT fk_tier_variant FOREIGN KEY (product_variant_id) REFERENCES product_variant(id) ON DELETE CASCADE
+);
+truncate review restart identity cascade ;
 -- =======================================================
 -- 9️⃣ ORDER TABLE
 -- =======================================================

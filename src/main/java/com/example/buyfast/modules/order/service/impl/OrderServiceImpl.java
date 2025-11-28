@@ -54,19 +54,19 @@ public class OrderServiceImpl implements OrderService {
                     .orElseThrow(() -> new IllegalArgumentException("Product variant not found: " + itemReq.getProductVariantId()));
 
             // Check Stock (Optional but recommended)
-            if (variant.getStockQuantity() < itemReq.getQuantity()) {
+            int rowsUpdated = productVariantRepo.decreaseStock(variant.getId(), itemReq.getQuantity());
+            if (rowsUpdated == 0) {
                 throw new IllegalArgumentException("Insufficient stock for SKU: " + variant.getSku());
             }
 
             BigDecimal lineItemTotal = variant.getPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
             finalTotal = finalTotal.add(lineItemTotal);
 
-            // Prepare the item object (without order ID yet)
             itemsToSave.add(OrderItem.builder()
                     .itemUuid(UUID.randomUUID())
                     .productId(variant.getProductId())
                     .quantity(itemReq.getQuantity())
-                    .pricePerUnit(variant.getPrice()) // Snapshot price
+                    .pricePerUnit(variant.getPrice())
                     .totalItemPrice(lineItemTotal)
                     .build());
         }

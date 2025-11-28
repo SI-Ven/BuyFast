@@ -27,4 +27,8 @@ public interface ProductVariantRepo {
 
     @Delete("DELETE FROM product_variant WHERE product_id = #{productId}")
     void deleteAllByProductId(@Param("productId") Long productId);
+    // --- NEW FIX: ATOMIC STOCK UPDATE ---
+    @Update("UPDATE product_variant SET stock_quantity = stock_quantity - #{quantity} " +
+            "WHERE id = #{id} AND stock_quantity >= #{quantity}")
+    int decreaseStock(@Param("id") Long id, @Param("quantity") int quantity);
 }
