@@ -27,10 +27,13 @@ public interface CategoryRepo {
     @Select("SELECT id FROM category WHERE category_uuid = #{categoryUuid}")
     Long findCategoryIdByUuid(UUID categoryUuid);
 
-    // --- NEW METHOD FIXED ---
     @Select("SELECT * FROM category WHERE category_uuid = #{categoryUuid}")
     Optional<Category> findByCategoryUuid(UUID categoryUuid);
-    // -----------------------
+
+    // --- ADDED THIS METHOD TO FIX YOUR ERROR ---
+    @Select("SELECT * FROM category WHERE id = #{id}")
+    Optional<Category> findById(Long id);
+    // ------------------------------------------
 
     @Select("SELECT * FROM main_category WHERE status = 'active' ORDER BY main_category_name")
     @Results({

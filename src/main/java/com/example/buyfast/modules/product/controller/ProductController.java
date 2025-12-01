@@ -5,6 +5,7 @@ import com.example.buyfast.modules.product.dto.CreateProductRequest;
 import com.example.buyfast.modules.product.dto.ProductResponse;
 import com.example.buyfast.modules.product.dto.UpdateProductRequest;
 import com.example.buyfast.modules.product.model.Product;
+import com.example.buyfast.modules.product.search.ProductDocument;
 import com.example.buyfast.modules.product.service.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
@@ -81,5 +82,14 @@ public class ProductController {
 
         List<ProductResponse> products = productService.getAllProductsForHome(page, size);
         return ResponseEntity.ok(ApiResponse.success("Products retrieved successfully.", products));
+    }
+
+    @GetMapping("/search")
+    @Operation(summary = "Search products like Alibaba (Elasticsearch)")
+    public ResponseEntity<ApiResponse<List<ProductDocument>>> searchProducts(
+            @RequestParam String keyword) {
+
+        List<ProductDocument> results = productService.searchProducts(keyword);
+        return ResponseEntity.ok(ApiResponse.success("Search results found", results));
     }
 }

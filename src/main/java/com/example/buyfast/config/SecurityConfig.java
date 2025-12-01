@@ -34,6 +34,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/**",
                                 "/api/v1/categories/**",
                                 "/api/v1/products/public",
+                                "/api/v1/products/search",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/error" // <-- CRITICAL FIX: Allow Spring Boot's error page

@@ -5,6 +5,7 @@ import com.example.buyfast.modules.product.dto.CreateProductRequest;
 import com.example.buyfast.modules.product.dto.ProductResponse;
 import com.example.buyfast.modules.product.dto.UpdateProductRequest;
 import com.example.buyfast.modules.product.model.Product;
+import com.example.buyfast.modules.product.search.ProductDocument;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.List;
@@ -28,6 +29,8 @@ public interface ProductService {
 
     ProductResponse getMyProduct(UUID productUuid, UserDetails sellerDetails);
     List<ProductResponse> getAllProductsForHome(int page, int size);
+
+    List<ProductDocument> searchProducts(String keyword);
 
     // We will skip UpdateProduct for now as it's very complex
     // Product updateProduct(UUID productUuid, UpdateProductRequest request, UserDetails sellerDetails);

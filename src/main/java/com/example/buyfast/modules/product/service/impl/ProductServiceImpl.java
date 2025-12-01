@@ -5,6 +5,8 @@ import com.example.buyfast.modules.category.repository.CategoryRepo;
 import com.example.buyfast.modules.product.dto.*;
 import com.example.buyfast.modules.product.model.*;
 import com.example.buyfast.modules.product.repository.*;
+import com.example.buyfast.modules.product.search.ProductDocument;
+import com.example.buyfast.modules.product.search.ProductSearchRepo; // <--- 1. IMPORT ADDED
 import com.example.buyfast.modules.product.service.ProductService;
 import com.example.buyfast.modules.user.model.User;
 import com.example.buyfast.util.UuidService;
@@ -12,7 +14,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -33,6 +34,12 @@ public class ProductServiceImpl implements ProductService {
     private final ProductVariantValuesRepo productVariantValuesRepo;
     private final ProductImageRepo productImageRepo;
 
+    // --- SEARCH REPO ---
+    private final ProductSearchRepo productSearchRepo; // <--- 2. INJECTED
+
+    // =================================================================
+    // 1. CREATE PRODUCT (With Search Sync)
+    // =================================================================
     @Override
     @Transactional
     public ProductResponse createProduct(CreateProductRequest request, UserDetails sellerDetails) {
@@ -55,7 +62,7 @@ public class ProductServiceImpl implements ProductService {
 
         // --- PREPARE VARIABLES FOR RESPONSE & HINTS ---
         List<ProductResponse.VariantResponse> variantResponses = new ArrayList<>();
-        boolean mainImageSet = false; // Tracks if we have set a main image yet
+        boolean mainImageSet = false;
 
         // New Hint Variables
         BigDecimal minPrice = null;
@@ -84,7 +91,8 @@ public class ProductServiceImpl implements ProductService {
             variant.setActive(true);
 
             // Generate simple SKU
-            String sku = request.getProductName().substring(0, 3).toUpperCase() + "-" + variant.getVariantUuid().toString().substring(0, 8);
+            String sku = request.getProductName().substring(0, Math.min(3, request.getProductName().length())).toUpperCase()
+                    + "-" + variant.getVariantUuid().toString().substring(0, 8);
             variant.setSku(sku);
 
             productVariantRepo.insert(variant);
@@ -94,12 +102,11 @@ public class ProductServiceImpl implements ProductService {
             // 4. Process Options
             for (OptionValueRequest optionReq : variantReq.getOptions()) {
 
-                // --- B. COLLECT OPTION HINTS (e.g. "Material": ["Wood", "Steel"]) ---
+                // --- B. COLLECT OPTION HINTS ---
                 optionsSummary.computeIfAbsent(optionReq.getOptionName(), k -> new HashSet<>())
                         .add(optionReq.getValueName());
-                // --------------------------------------------------------------------
 
-                // Save/Get Option (e.g., "Material")
+                // Save/Get Option
                 ProductOption option = productOptionRepo.findByProductIdAndOptionName(product.getId(), optionReq.getOptionName())
                         .orElseGet(() -> {
                             ProductOption newOpt = new ProductOption();
@@ -110,7 +117,7 @@ public class ProductServiceImpl implements ProductService {
                             return newOpt;
                         });
 
-                // Save/Get Value (e.g., "Wooden")
+                // Save/Get Value
                 ProductOptionValue value = productOptionValueRepo.findByOptionIdAndValueName(option.getId(), optionReq.getValueName())
                         .orElseGet(() -> {
                             ProductOptionValue newVal = new ProductOptionValue();
@@ -123,11 +130,10 @@ public class ProductServiceImpl implements ProductService {
 
                 productVariantValuesRepo.insert(variant.getId(), value.getId());
 
-                // Save Images & Handle Main Image
+                // Save Images
                 List<String> savedImageUrls = new ArrayList<>();
                 if (optionReq.getImgUrls() != null) {
                     for (String url : optionReq.getImgUrls()) {
-                        // Avoid duplicates for the same value
                         if (!productImageRepo.existsByUrlAndValueId(url, value.getId())) {
                             ProductImage image = new ProductImage();
                             image.setImageUuid(uuidService.generateUuid());
@@ -136,7 +142,6 @@ public class ProductServiceImpl implements ProductService {
                             image.setOptionValueId(value.getId());
                             image.setVariantId(variant.getId());
 
-                            // FIX: Set first image as main, others as false
                             if (!mainImageSet) {
                                 image.setIsMain(true);
                                 mainImageSet = true;
@@ -150,7 +155,6 @@ public class ProductServiceImpl implements ProductService {
                     }
                 }
 
-                // Add to Option Response
                 optionResponses.add(ProductResponse.OptionResponse.builder()
                         .optionName(option.getOptionName())
                         .valueName(value.getValueName())
@@ -158,7 +162,6 @@ public class ProductServiceImpl implements ProductService {
                         .build());
             }
 
-            // Add to Variant Response
             variantResponses.add(ProductResponse.VariantResponse.builder()
                     .variantUuid(variant.getVariantUuid())
                     .price(variant.getPrice())
@@ -168,17 +171,18 @@ public class ProductServiceImpl implements ProductService {
                     .build());
         }
 
-        // 5. Construct Final Response with Hints
+        // --- SYNC TO ELASTICSEARCH ---
+        saveToElasticsearch(product, category, minPrice);
+        // -----------------------------
+
         return ProductResponse.builder()
                 .id(product.getId())
                 .productUuid(product.getProductUuid())
                 .productName(product.getProductName())
                 .description(product.getDescription())
-                // --- SET HINTS HERE ---
                 .minPrice(minPrice)
                 .maxPrice(maxPrice)
                 .availableOptions(optionsSummary)
-                // ----------------------
                 .categoryId(product.getCategoryId())
                 .isActive(product.isActive())
                 .variants(variantResponses)
@@ -203,27 +207,18 @@ public class ProductServiceImpl implements ProductService {
 
         List<ProductResponse.VariantResponse> variantResponses = new ArrayList<>();
 
-        // C. Loop Variants to build structure
         for (ProductVariant variant : variants) {
-
-            // Calc Price Range
             if (minPrice == null || variant.getPrice().compareTo(minPrice) < 0) minPrice = variant.getPrice();
             if (maxPrice == null || variant.getPrice().compareTo(maxPrice) > 0) maxPrice = variant.getPrice();
 
-            // Fetch Values linked to this Variant (Using the Repo method we added)
             List<ProductOptionValue> values = productVariantValuesRepo.findValuesByVariantId(variant.getId());
-
             List<ProductResponse.OptionResponse> optionResponses = new ArrayList<>();
 
             for (ProductOptionValue val : values) {
-                // Fetch Option Name (e.g., "Material")
-                ProductOption option = productOptionRepo.findById(val.getOptionId()); // Ensure you have findById in Repo
-
-                // Fetch Images for this Value (e.g., Wooden images)
+                ProductOption option = productOptionRepo.findById(val.getOptionId());
                 List<ProductImage> images = productImageRepo.findAllByOptionValueId(val.getId());
                 List<String> imageUrls = images.stream().map(ProductImage::getImageUrl).collect(Collectors.toList());
 
-                // Add to Summary for Hints
                 optionsSummary.computeIfAbsent(option.getOptionName(), k -> new HashSet<>()).add(val.getValueName());
 
                 optionResponses.add(ProductResponse.OptionResponse.builder()
@@ -257,7 +252,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     // =================================================================
-    // 2. UPDATE PRODUCT (Updates Main Info)
+    // 2. UPDATE PRODUCT (Updates Main Info & Syncs Search)
     // =================================================================
     @Override
     @Transactional
@@ -266,44 +261,47 @@ public class ProductServiceImpl implements ProductService {
         Product product = productRepo.findByUuidAndSellerId(productUuid, seller.getId())
                 .orElseThrow(() -> new IllegalStateException("Product not found"));
 
-        // 1. Update Base Fields if present
+        // 1. Update Base Fields
         if (request.getProductName() != null) product.setProductName(request.getProductName());
         if (request.getDescription() != null) product.setDescription(request.getDescription());
         if (request.getIsActive() != null) product.setActive(request.getIsActive());
 
-        // 2. Update Category if provided
+        // 2. Update Category
         if (request.getCategoryUuid() != null) {
             Category category = categoryRepo.findByCategoryUuid(request.getCategoryUuid())
                     .orElseThrow(() -> new IllegalArgumentException("Category not found"));
             product.setCategoryId(category.getId());
         }
 
-        // Save changes to base product
         productRepo.update(product);
 
-        // 3. Update Variants if provided (Full Replacement Strategy)
+        // 3. Update Variants if provided
         if (request.getVariants() != null && !request.getVariants().isEmpty()) {
-            // A. Clean up old data
-            // We delete images, variants, and options.
-            // Cascade in DB usually handles values, but we clear parent structures here to be safe and clean.
             productImageRepo.deleteAllByProductId(product.getId());
             productVariantRepo.deleteAllByProductId(product.getId());
             productOptionRepo.deleteAllByProductId(product.getId());
-
-            // B. Create new variants
             processVariants(product, request.getVariants());
         }
 
-        // 4. Return updated response
+        // 4. SYNC TO ELASTICSEARCH
+        // We need minPrice and Category Name for the search document
+        Category category = categoryRepo.findById(product.getCategoryId()).orElse(new Category());
+
+        // Recalculate minPrice for the sync
+        List<ProductVariant> currentVariants = productVariantRepo.findAllByProductId(product.getId());
+        BigDecimal minPrice = currentVariants.stream()
+                .map(ProductVariant::getPrice)
+                .min(Comparator.naturalOrder())
+                .orElse(BigDecimal.ZERO);
+
+        saveToElasticsearch(product, category, minPrice);
+        // -------------------------
+
         return getMyProduct(productUuid, sellerDetails);
     }
 
-    /**
-     * Helper method to process and save variants, options, and images.
-     * Used by both create and update methods to ensure consistency.
-     */
     private void processVariants(Product product, List<VariantRequest> variants) {
-        boolean mainImageSet = false; // Tracks if we have set a main image yet globally for the product
+        boolean mainImageSet = false;
 
         for (VariantRequest variantReq : variants) {
             ProductVariant variant = new ProductVariant();
@@ -313,16 +311,13 @@ public class ProductServiceImpl implements ProductService {
             variant.setStockQuantity(variantReq.getStockQuantity());
             variant.setActive(true);
 
-            // Generate simple SKU
             String sku = product.getProductName().substring(0, Math.min(3, product.getProductName().length())).toUpperCase()
                     + "-" + variant.getVariantUuid().toString().substring(0, 8);
             variant.setSku(sku);
 
             productVariantRepo.insert(variant);
 
-            // Process Options
             for (OptionValueRequest optionReq : variantReq.getOptions()) {
-                // Save/Get Option (e.g., "Material")
                 ProductOption option = productOptionRepo.findByProductIdAndOptionName(product.getId(), optionReq.getOptionName())
                         .orElseGet(() -> {
                             ProductOption newOpt = new ProductOption();
@@ -333,7 +328,6 @@ public class ProductServiceImpl implements ProductService {
                             return newOpt;
                         });
 
-                // Save/Get Value (e.g., "Wooden")
                 ProductOptionValue value = productOptionValueRepo.findByOptionIdAndValueName(option.getId(), optionReq.getValueName())
                         .orElseGet(() -> {
                             ProductOptionValue newVal = new ProductOptionValue();
@@ -344,13 +338,10 @@ public class ProductServiceImpl implements ProductService {
                             return newVal;
                         });
 
-                // Link Variant to Value
                 productVariantValuesRepo.insert(variant.getId(), value.getId());
 
-                // Save Images & Handle Main Image
                 if (optionReq.getImgUrls() != null) {
                     for (String url : optionReq.getImgUrls()) {
-                        // Avoid duplicates for the same value
                         if (!productImageRepo.existsByUrlAndValueId(url, value.getId())) {
                             ProductImage image = new ProductImage();
                             image.setImageUuid(uuidService.generateUuid());
@@ -359,10 +350,9 @@ public class ProductServiceImpl implements ProductService {
                             image.setOptionValueId(value.getId());
                             image.setVariantId(variant.getId());
 
-                            // Logic to ensure only one main image per product
                             if (!mainImageSet) {
                                 image.setIsMain(true);
-                                mainImageSet = true; // Update flag
+                                mainImageSet = true;
                             } else {
                                 image.setIsMain(false);
                             }
@@ -376,28 +366,59 @@ public class ProductServiceImpl implements ProductService {
     }
 
     // =================================================================
-    // 3. DELETE PRODUCT (Cascade handles everything!)
+    // 3. DELETE PRODUCT (Cascade handles everything + Remove from ES)
     // =================================================================
     @Override
     @Transactional
     public void deleteProduct(UUID productUuid, UserDetails sellerDetails) {
         User seller = (User) sellerDetails;
 
-        // 1. Check ownership
         Product product = productRepo.findByUuidAndSellerId(productUuid, seller.getId())
                 .orElseThrow(() -> new IllegalStateException("Product not found or permission denied."));
 
-        // 2. Delete Parent
-        // Because your Schema.sql has "ON DELETE CASCADE" on variants, options, images,
-        // deleting this ONE row will automatically remove ALL related data from the DB.
+        // Delete from Postgres
         productRepo.deleteByUuidAndSellerId(product.getProductUuid(), seller.getId());
+
+        // --- REMOVE FROM ELASTICSEARCH ---
+        try {
+            productSearchRepo.deleteById(product.getId());
+        } catch (Exception e) {
+            System.err.println("Warning: Failed to delete product from Elasticsearch: " + e.getMessage());
+        }
     }
+
     @Override
     public List<ProductResponse> getAllProductsForHome(int page, int size) {
         if (page < 1) page = 1;
         int offset = (page - 1) * size;
-
-        // This executes the optimized SQL query
         return productRepo.findAllActiveProductsSummary(size, offset);
+    }
+
+    // =================================================================
+    // 4. SEARCH PRODUCTS (ELASTICSEARCH)
+    // =================================================================
+    @Override
+    public List<ProductDocument> searchProducts(String keyword) {
+        // This leverages the Elasticsearch engine
+        return productSearchRepo.findByProductNameContaining(keyword);
+    }
+
+    // --- HELPER TO SYNC DATA ---
+    private void saveToElasticsearch(Product product, Category category, BigDecimal minPrice) {
+        try {
+            ProductDocument doc = new ProductDocument();
+            doc.setId(product.getId());
+            doc.setProductName(product.getProductName());
+            doc.setDescription(product.getDescription());
+            // Assuming getter is getCategoryName() based on Schema or standard convention.
+            // If Schema.sql column is category_name, MyBatis mapping handles it to field 'categoryName' typically.
+            doc.setCategoryName(category.getCategoryName());
+            doc.setMinPrice(minPrice != null ? minPrice.doubleValue() : 0.0);
+
+            productSearchRepo.save(doc);
+        } catch (Exception e) {
+            // Log error so transaction doesn't rollback due to search engine failure
+            System.err.println("Error syncing product to Elasticsearch: " + e.getMessage());
+        }
     }
 }
