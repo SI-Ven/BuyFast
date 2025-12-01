@@ -1,6 +1,5 @@
-package com.example.buyfast.modules.product.repository;
+package com.example.buyfast.modules.product.search;
 
-import com.example.buyfast.modules.product.search.ProductDocument;
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
 import java.util.List;
 

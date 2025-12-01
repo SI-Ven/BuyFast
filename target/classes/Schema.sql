@@ -446,6 +446,50 @@ CREATE TABLE favorite (
                           UNIQUE(user_id, product_id) -- Prevent duplicate favorites
 );
 
+
+CREATE TABLE rfq_request (
+                             id BIGSERIAL PRIMARY KEY,
+                             user_id BIGINT NOT NULL,
+                             product_name VARCHAR(255) NOT NULL,
+                             quantity_required INT NOT NULL,
+                             target_price DECIMAL(10,2),
+                             description TEXT,
+                             status VARCHAR(20) DEFAULT 'open', -- 'open', 'closed'
+                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE rfq_bid (
+                         id BIGSERIAL PRIMARY KEY,
+                         rfq_id BIGINT NOT NULL,
+                         seller_id BIGINT NOT NULL,
+                         price DECIMAL(10,2) NOT NULL,
+                         message TEXT,
+                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                         CONSTRAINT fk_rfq_bid_rfq FOREIGN KEY (rfq_id) REFERENCES rfq_request(id),
+                         CONSTRAINT fk_rfq_bid_seller FOREIGN KEY (seller_id) REFERENCES users(id)
+);
+
+CREATE TABLE disputes (
+                          id BIGSERIAL PRIMARY KEY,
+                          order_id BIGINT NOT NULL,
+                          user_id BIGINT NOT NULL, -- The buyer creating the dispute
+                          reason VARCHAR(50) NOT NULL, -- e.g., 'NOT_RECEIVED', 'DAMAGED', 'FAKE'
+                          description TEXT,
+                          status VARCHAR(20) DEFAULT 'OPEN', -- 'OPEN', 'RESOLVED', 'REJECTED'
+                          admin_comment TEXT, -- If admin steps in
+                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                          CONSTRAINT fk_dispute_order FOREIGN KEY (order_id) REFERENCES orders(id),
+                          CONSTRAINT fk_dispute_user FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE dispute_evidence (
+                                  id BIGSERIAL PRIMARY KEY,
+                                  dispute_id BIGINT NOT NULL,
+                                  image_url VARCHAR(255) NOT NULL,
+                                  CONSTRAINT fk_evidence_dispute FOREIGN KEY (dispute_id) REFERENCES disputes(id)
+);
+
 -- =======================================================
 -- DATA INSERTION (Requires main_category data to exist first)
 -- =======================================================
