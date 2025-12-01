@@ -446,6 +446,29 @@ CREATE TABLE favorite (
                           UNIQUE(user_id, product_id) -- Prevent duplicate favorites
 );
 
+
+CREATE TABLE rfq_request (
+                             id BIGSERIAL PRIMARY KEY,
+                             user_id BIGINT NOT NULL,
+                             product_name VARCHAR(255) NOT NULL,
+                             quantity_required INT NOT NULL,
+                             target_price DECIMAL(10,2),
+                             description TEXT,
+                             status VARCHAR(20) DEFAULT 'open', -- 'open', 'closed'
+                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE rfq_bid (
+                         id BIGSERIAL PRIMARY KEY,
+                         rfq_id BIGINT NOT NULL,
+                         seller_id BIGINT NOT NULL,
+                         price DECIMAL(10,2) NOT NULL,
+                         message TEXT,
+                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                         CONSTRAINT fk_rfq_bid_rfq FOREIGN KEY (rfq_id) REFERENCES rfq_request(id),
+                         CONSTRAINT fk_rfq_bid_seller FOREIGN KEY (seller_id) REFERENCES users(id)
+);
+
 -- =======================================================
 -- DATA INSERTION (Requires main_category data to exist first)
 -- =======================================================
