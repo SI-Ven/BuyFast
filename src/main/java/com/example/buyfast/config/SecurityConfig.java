@@ -33,10 +33,12 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/auth/**",
                                 "/api/v1/categories/**",
+                                "/api/v1/products/public",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/error" // <-- CRITICAL FIX: Allow Spring Boot's error page
                         ).permitAll()
+
 
                         .requestMatchers(HttpMethod.POST,"/api/v1/favorites/**").authenticated()
                        .requestMatchers(HttpMethod.POST,"/api/v1/shipping-address/**").authenticated()

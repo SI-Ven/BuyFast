@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  # 1. Elasticsearch (The Search Engine)
+  elasticsearch:
+    image: elasticsearch:8.11.1
+    container_name: buyfast-search
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false # Disabled for dev simplicity (HTTP)
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # Limit memory usage
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+
+  # 2. PostgreSQL (The Database)
+  postgres:
+    image: postgres:15
+    container_name: buyfast-db
+    environment:
+      POSTGRES_DB: fast_buy_app
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "Pa$$w0rd#@!" # Matches your application.properties
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # 3. Redis (The Cache - Required later for performance)
+  redis:
+    image: redis:alpine
+    container_name: buyfast-cache
+    ports:
+      - "6379:6379"
+
+volumes:
+  es_data:
+  postgres_data:
