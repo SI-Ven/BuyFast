@@ -9,9 +9,10 @@ import com.example.buyfast.modules.category.repository.CategoryRepo;
 import com.example.buyfast.modules.category.service.CategoryService;
 import com.example.buyfast.util.UuidService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.cache.annotation.Cacheable;
 import java.util.List;
 
 @Service
@@ -23,6 +24,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Transactional
     @Override
+    @CacheEvict(value = "mainCategories", allEntries = true) // <--- Clears the old cache
     public MainCategory createMainCategory(CreateMainCategoryRequest request) {
         // ... (Unchanged)
         MainCategory mainCategory = new MainCategory();
@@ -36,6 +38,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Transactional
     @Override
+    @CacheEvict(value = "mainCategories", allEntries = true) // <--- Clears the old cache
     public Category createCategory(CreateCategoryRequest request) {
         // ... (Unchanged)
         Long parentInternalId = categoryRepo.findMainCategoryIdByUuid(request.getMainCategoryUuid());
@@ -57,6 +60,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     // --- MODIFIED METHOD ---
     @Override
+    @Cacheable(value = "mainCategories", key = "'tree'")
     public List<MainCategory> getAllMainCategoriesWithSubCategories() {
         // This one call now does all the work
         return categoryRepo.findAllMainCategoriesWithSubCategories();

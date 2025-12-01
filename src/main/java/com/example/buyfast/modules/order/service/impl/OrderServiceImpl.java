@@ -8,7 +8,9 @@ import com.example.buyfast.modules.order.model.OrderItem;
 import com.example.buyfast.modules.order.repository.OrderItemRepo;
 import com.example.buyfast.modules.order.repository.OrderRepo;
 import com.example.buyfast.modules.order.service.OrderService;
+import com.example.buyfast.modules.product.model.ProductTierPricing;
 import com.example.buyfast.modules.product.model.ProductVariant;
+import com.example.buyfast.modules.product.repository.ProductTierPricingRepo;
 import com.example.buyfast.modules.product.repository.ProductVariantRepo;
 import com.example.buyfast.modules.user.model.User;
 import com.example.buyfast.modules.user.repository.UserRepo;
@@ -32,6 +34,7 @@ public class OrderServiceImpl implements OrderService {
     private final AddressRepo addressRepo;
     private final UserRepo userRepo;
     private final ProductVariantRepo productVariantRepo;
+    private final ProductTierPricingRepo tierPricingRepo;
 
 
     @Override
@@ -52,15 +55,21 @@ public class OrderServiceImpl implements OrderService {
 
         for (CreateOrderRequest.OrderItemRequest itemReq : request.getItems()) {
             ProductVariant variant = productVariantRepo.findById(itemReq.getProductVariantId())
-                    .orElseThrow(() -> new IllegalArgumentException("Product variant not found: " + itemReq.getProductVariantId()));
+                    .orElseThrow(() -> new IllegalArgumentException("Variant not found"));
 
-            // Check Stock (Optional but recommended)
-            int rowsUpdated = productVariantRepo.decreaseStock(variant.getId(), itemReq.getQuantity());
-            if (rowsUpdated == 0) {
-                throw new IllegalArgumentException("Insufficient stock for SKU: " + variant.getSku());
+            // --- NEW WHOLESALE LOGIC STARTS HERE ---
+            BigDecimal priceToUse = variant.getPrice(); // Default price
+
+            // Check if bulk discount applies
+            List<ProductTierPricing> tiers = tierPricingRepo.findByVariantId(variant.getId());
+            for (ProductTierPricing tier : tiers) {
+                if (itemReq.getQuantity() >= tier.getMinQuantity()) {
+                    priceToUse = tier.getPrice(); // Found a better price!
+                    break; // Stop because we sorted by Quantity DESC
+                }
             }
 
-            BigDecimal lineItemTotal = variant.getPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
+            BigDecimal lineItemTotal = priceToUse.multiply(BigDecimal.valueOf(itemReq.getQuantity()));
             finalTotal = finalTotal.add(lineItemTotal);
 
             itemsToSave.add(OrderItem.builder()

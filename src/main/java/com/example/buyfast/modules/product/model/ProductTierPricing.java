@@ -1,4 +1,5 @@
 package com.example.buyfast.modules.product.model;
+
 import lombok.Data;
 import java.math.BigDecimal;
 
@@ -6,6 +7,6 @@ import java.math.BigDecimal;
 public class ProductTierPricing {
     private Long id;
     private Long productVariantId;
-    private Integer minQuantity;
-    private BigDecimal price;
+    private Integer minQuantity; // e.g., 50
+    private BigDecimal price;    // e.g., $9.00 (instead of $10.00)
 }

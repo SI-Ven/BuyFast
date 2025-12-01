@@ -12,6 +12,7 @@
     <file url="file://$PROJECT_DIR$/src/main/java/com/example/buyfast/modules/product/repository/ProductRepo.java" dialect="GenericSQL" />
     <file url="file://$PROJECT_DIR$/src/main/java/com/example/buyfast/modules/product/repository/ProductVariantRepo.java" dialect="GenericSQL" />
     <file url="file://$PROJECT_DIR$/src/main/java/com/example/buyfast/modules/review/repository/ReviewRepo.java" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/src/main/java/com/example/buyfast/modules/rfq/service/RfqService.java" dialect="GenericSQL" />
     <file url="file://$PROJECT_DIR$/src/main/java/com/example/buyfast/modules/user/repository/UserProfileRepo.java" dialect="GenericSQL" />
     <file url="file://$PROJECT_DIR$/src/main/java/com/example/buyfast/modules/user/repository/UserRepo.java" dialect="GenericSQL" />
     <file url="file://$PROJECT_DIR$/src/main/java/com/example/buyfast/modules/verify/repository/VerifyRepo.java" dialect="GenericSQL" />
