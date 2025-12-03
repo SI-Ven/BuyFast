@@ -10,6 +10,7 @@ com\example\buyfast\modules\product\repository\ProductImageRepo.class
 com\example\buyfast\modules\category\controller\CategoryController.class
 com\example\buyfast\modules\review\service\ReviewService.class
 com\example\buyfast\modules\order\repository\OrderRepo.class
+com\example\buyfast\config\WebSocketConfig$1.class
 com\example\buyfast\modules\order\model\Order$OrderBuilder.class
 com\example\buyfast\common\ApiResponse.class
 com\example\buyfast\config\ApplicationConfig.class
@@ -17,7 +18,6 @@ com\example\buyfast\modules\otp\repository\OtpRepo.class
 com\example\buyfast\modules\auth\repository\PermissionRepo.class
 com\example\buyfast\modules\company\dto\SellerProfileDto.class
 com\example\buyfast\modules\company\dto\UpdateCompanyRequest.class
-com\example\buyfast\modules\chat\controller\ChatController$MessageType.class
 com\example\buyfast\modules\order\model\Order.class
 com\example\buyfast\modules\dispute\model\Dispute.class
 com\example\buyfast\config\DatabaseSeeder.class
@@ -80,6 +80,7 @@ com\example\buyfast\modules\verify\model\Verify.class
 com\example\buyfast\modules\admin\controller\AdminController.class
 com\example\buyfast\config\JwtService.class
 com\example\buyfast\modules\user\repository\UserRepo.class
+com\example\buyfast\modules\chat\model\MessageType.class
 com\example\buyfast\modules\product\service\impl\ProductServiceImpl.class
 com\example\buyfast\modules\product\dto\ProductResponse$OptionResponse.class
 com\example\buyfast\modules\dispute\controller\DisputeController.class
@@ -114,7 +115,6 @@ com\example\buyfast\modules\auth\model\Permission.class
 com\example\buyfast\modules\storage\service\Impl\PinataStorageServiceImpl$1.class
 com\example\buyfast\modules\address\controller\AddressController.class
 com\example\buyfast\modules\user\dto\UpdateProfileRequest.class
-com\example\buyfast\modules\chat\controller\ChatController$ChatMessage.class
 com\example\buyfast\modules\dispute\repository\DisputeRepo.class
 com\example\buyfast\modules\auth\dto\ResendOtpRequest.class
 com\example\buyfast\modules\category\model\MainCategory.class
@@ -152,6 +152,7 @@ com\example\buyfast\modules\storage\service\StorageService.class
 com\example\buyfast\modules\company\controller\CompanyAdminController.class
 com\example\buyfast\modules\favorite\service\impl\FavoriteServiceImpl.class
 com\example\buyfast\modules\auth\model\Invitation.class
+com\example\buyfast\modules\chat\model\ChatMessage.class
 com\example\buyfast\modules\auth\dto\OtpRequest.class
 com\example\buyfast\modules\product\search\ProductDocument.class
 com\example\buyfast\modules\storage\dto\PinataResponse.class

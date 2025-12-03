@@ -33,6 +33,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        // Allows the initial HTTP handshake
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("*")
                 .withSockJS();
@@ -45,7 +46,6 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.setUserDestinationPrefix("/user");
     }
 
-    // --- ADD THIS SECURITY INTERCEPTOR ---
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
         registration.interceptors(new ChannelInterceptor() {
@@ -53,31 +53,21 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
             public Message<?> preSend(Message<?> message, MessageChannel channel) {
                 StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
-                // Check if this is a CONNECT command
                 if (StompCommand.CONNECT.equals(accessor.getCommand())) {
-
-                    // 1. Extract the token from the STOMP "Authorization" header
                     String authHeader = accessor.getFirstNativeHeader("Authorization");
-
                     if (authHeader != null && authHeader.startsWith("Bearer ")) {
                         String token = authHeader.substring(7);
                         String username = jwtService.extractUsername(token);
-
                         if (username != null) {
                             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-
                             if (jwtService.isTokenValid(token, userDetails)) {
-                                // 2. Authenticate the user for this WebSocket session
                                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                                         userDetails, null, userDetails.getAuthorities()
                                 );
-                                accessor.setUser(authToken);
+                                accessor.setUser(authToken); // Principal = Email
                                 SecurityContextHolder.getContext().setAuthentication(authToken);
                             }
                         }
-                    } else {
-                        // Optional: Throw error if no token provided
-                        // throw new IllegalArgumentException("No Token Provided");
                     }
                 }
                 return message;

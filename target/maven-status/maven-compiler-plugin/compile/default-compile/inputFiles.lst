@@ -102,6 +102,7 @@ D:\ecommerce\BuyFast\src\main\java\com\example\buyfast\modules\favorite\model\Fa
 D:\ecommerce\BuyFast\src\main\java\com\example\buyfast\modules\otp\service\Impl\SmsOtpServiceImpl.java
 D:\ecommerce\BuyFast\src\main\java\com\example\buyfast\modules\product\dto\CreateProductRequest.java
 D:\ecommerce\BuyFast\src\main\java\com\example\buyfast\modules\storage\service\Impl\PinataStorageServiceImpl.java
+D:\ecommerce\BuyFast\src\main\java\com\example\buyfast\modules\chat\model\MessageType.java
 D:\ecommerce\BuyFast\src\main\java\com\example\buyfast\modules\admin\dto\UpdateProductStatusRequest.java
 D:\ecommerce\BuyFast\src\main\java\com\example\buyfast\modules\category\service\CategoryService.java
 D:\ecommerce\BuyFast\src\main\java\com\example\buyfast\modules\storage\controller\StorageController.java
@@ -136,6 +137,7 @@ D:\ecommerce\BuyFast\src\main\java\com\example\buyfast\modules\order\controller\
 D:\ecommerce\BuyFast\src\main\java\com\example\buyfast\modules\auth\model\Invitation.java
 D:\ecommerce\BuyFast\src\main\java\com\example\buyfast\modules\product\service\ProductService.java
 D:\ecommerce\BuyFast\src\main\java\com\example\buyfast\modules\product\dto\ProductResponse.java
+D:\ecommerce\BuyFast\src\main\java\com\example\buyfast\modules\chat\model\ChatMessage.java
 D:\ecommerce\BuyFast\src\main\java\com\example\buyfast\modules\favorite\repository\FavoriteRepo.java
 D:\ecommerce\BuyFast\src\main\java\com\example\buyfast\modules\admin\service\impl\AdminServiceImpl.java
 D:\ecommerce\BuyFast\src\main\java\com\example\buyfast\modules\order\dto\CreateOrderRequest.java

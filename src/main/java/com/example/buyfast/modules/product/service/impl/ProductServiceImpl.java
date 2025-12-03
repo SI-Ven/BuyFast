@@ -57,7 +57,6 @@ public class ProductServiceImpl implements ProductService {
         product.setCompanyId(seller.getCompanyId());
         product.setCategoryId(category.getId());
         product.setDescription(request.getDescription());
-        product.setSellerId(Long.valueOf(seller.getUserUuid().toString()));
         product.setActive(true);
         productRepo.insert(product);
 
@@ -181,6 +180,7 @@ public class ProductServiceImpl implements ProductService {
                 .productUuid(product.getProductUuid())
                 .productName(product.getProductName())
                 .description(product.getDescription())
+                .sellerId(seller.getEmail())
                 .minPrice(minPrice)
                 .maxPrice(maxPrice)
                 .availableOptions(optionsSummary)
@@ -243,7 +243,7 @@ public class ProductServiceImpl implements ProductService {
                 .productUuid(product.getProductUuid())
                 .productName(product.getProductName())
                 .description(product.getDescription())
-                .sellerId(String.valueOf(seller.getUserUuid()))
+                .sellerId(seller.getEmail())
                 .minPrice(minPrice)
                 .maxPrice(maxPrice)
                 .availableOptions(optionsSummary)

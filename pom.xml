@@ -51,7 +51,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <scope>annotationProcessor</scope>
+            <version>1.18.34</version> <scope>annotationProcessor</scope>
         </dependency>
         <dependency>
             <groupId>org.mybatis.spring.boot</groupId>
