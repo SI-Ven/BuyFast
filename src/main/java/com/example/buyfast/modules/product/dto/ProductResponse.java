@@ -20,6 +20,7 @@ public class ProductResponse {
     private UUID productUuid;
     private String productName;
     private String description;
+    private String sellerId;
 
     // Hints for card display
     private BigDecimal minPrice;
