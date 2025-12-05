@@ -18,6 +18,7 @@ public class UserProfile {
     private String email;
     private String phoneNumber;
     private String userProfile; // Avatar URL
+    private String coverProfile;
     private String address;
     private String city;
     private String country;

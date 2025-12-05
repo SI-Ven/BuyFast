@@ -73,6 +73,8 @@ CREATE TABLE users (
                            ON DELETE SET NULL
 );
 
+truncate table users restart identity cascade ;
+
 
 CREATE TABLE user_profile (
                               id BIGSERIAL PRIMARY KEY,
@@ -82,7 +84,8 @@ CREATE TABLE user_profile (
                               user_name VARCHAR(100),
                               email VARCHAR(100),
                               phone_number VARCHAR(100),
-                              user_profile VARCHAR(255), -- Avatar URL
+                              user_profile VARCHAR(255),
+                              cover_proile VARCHAR(255),
                               address TEXT,
                               city TEXT,
                               country TEXT,

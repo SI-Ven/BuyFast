@@ -41,11 +41,12 @@ public class UserController {
             @RequestParam(value = "postalCode", required = false) String postalCode,
             @RequestParam(value = "phoneNumber", required = false) String phoneNumber,
             @RequestParam(value = "profilePictureFile", required = false) MultipartFile profilePictureFile,
+            @RequestParam(value = "coverProfileFile", required = false) MultipartFile coverProfileFile, // Added new param
             @AuthenticationPrincipal UserDetails userDetails) {
 
         UserProfile updatedProfile = userService.updateUserProfile(
                 firstName, lastName, email, address, city, country, postalCode,
-                phoneNumber, userDetails, profilePictureFile);
+                phoneNumber, userDetails, profilePictureFile, coverProfileFile);
 
         return ResponseEntity.ok(ApiResponse.success("Profile updated successfully.", updatedProfile));
     }
@@ -63,8 +64,4 @@ public class UserController {
         Verify verificationRequest = userService.becomeSeller(userDetails);
         return ResponseEntity.ok(ApiResponse.success("Your request to become a seller has been submitted for approval.", verificationRequest));
     }
-
-
-
-
 }

@@ -12,6 +12,7 @@ public interface UserProfileRepo {
     @Results({
             @Result(property = "postalCode", column = "Postal_Code"),
             @Result(property = "userProfile", column = "user_profile"),
+            @Result(property = "coverProfile", column = "cover_profile"),
             @Result(property = "firstName", column = "first_name"),
             @Result(property = "lastName", column = "last_name"),
             @Result(property = "userName", column = "user_name"),
@@ -34,6 +35,7 @@ public interface UserProfileRepo {
             "email = #{email}, " +
             "phone_number = #{phoneNumber}, " +
             "user_profile = #{userProfile}, " +
+            "cover_profile = #{coverProfile}, " +
             "address = #{address}, " +
             "city = #{city}, " +
             "country = #{country}, " +

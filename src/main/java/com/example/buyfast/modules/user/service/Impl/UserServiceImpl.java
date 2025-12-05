@@ -37,7 +37,8 @@ public class UserServiceImpl implements UserService {
             String postalCode,
             String phoneNumber,
             UserDetails userDetails,
-            MultipartFile profilePictureFile) {
+            MultipartFile profilePictureFile,
+            MultipartFile coverProfileFile) { // Added argument
 
         User currentUser = (User) userDetails;
 
@@ -48,7 +49,6 @@ public class UserServiceImpl implements UserService {
                     newProfile.setUserId(currentUser.getId());
                     // Set defaults from User entity if available
                     newProfile.setEmail(currentUser.getEmail());
-                    // Removed: newProfile.setPhoneNumber(...) as User no longer has phoneNumber
                     userProfileRepo.create(newProfile);
                     return newProfile;
                 });
@@ -75,16 +75,21 @@ public class UserServiceImpl implements UserService {
             profileUpdated = true;
         }
 
-        // Removed: Section 3 that updated User table phone number (columns removed from DB)
-
-        // 3. Handle File Upload
+        // 3. Handle File Uploads (Profile Picture)
         if (profilePictureFile != null && !profilePictureFile.isEmpty()) {
             String newProfilePicUrl = storageService.uploadFile(profilePictureFile);
             profile.setUserProfile(newProfilePicUrl);
             profileUpdated = true;
         }
 
-        // 4. Persist changes
+        // 4. Handle File Uploads (Cover Picture) -- NEW
+        if (coverProfileFile != null && !coverProfileFile.isEmpty()) {
+            String newCoverPicUrl = storageService.uploadFile(coverProfileFile);
+            profile.setCoverProfile(newCoverPicUrl);
+            profileUpdated = true;
+        }
+
+        // 5. Persist changes
         if (profileUpdated) {
             userProfileRepo.update(profile);
         }
