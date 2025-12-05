@@ -72,8 +72,7 @@ CREATE TABLE users (
                        CONSTRAINT fk_user_company FOREIGN KEY (company_id) REFERENCES company(id)
                            ON DELETE SET NULL
 );
-drop table users cascade ;
-ALTER TABLE users ADD COLUMN token_version INT DEFAULT 0;
+
 
 CREATE TABLE user_profile (
                               id BIGSERIAL PRIMARY KEY,
