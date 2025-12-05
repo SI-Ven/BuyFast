@@ -5,7 +5,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationProvider;
-import org.springframework.security.config.Customizer; // <-- Import this
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -13,6 +13,11 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration; // Import
+import org.springframework.web.cors.CorsConfigurationSource; // Import
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource; // Import
+
+import java.util.List; // Import
 
 @Configuration
 @EnableWebSecurity
@@ -27,7 +32,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(Customizer.withDefaults()) // <-- ENABLE CORS (Fixes 403 from browsers/Swagger)
+                .cors(Customizer.withDefaults()) // Uses the corsConfigurationSource bean defined below
                 .authorizeHttpRequests(auth -> auth
                         // --- PUBLIC ENDPOINTS ---
                         .requestMatchers(
@@ -38,12 +43,12 @@ public class SecurityConfig {
                                 "/ws/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
-                                "/error" // <-- CRITICAL FIX: Allow Spring Boot's error page
+                                "/error"
                         ).permitAll()
 
 
                         .requestMatchers(HttpMethod.POST,"/api/v1/favorites/**").authenticated()
-                       .requestMatchers(HttpMethod.POST,"/api/v1/shipping-address/**").authenticated()
+                        .requestMatchers(HttpMethod.POST,"/api/v1/shipping-address/**").authenticated()
                         // --- SUPER ADMIN ---
                         .requestMatchers(HttpMethod.POST, "/api/v1/verify/approve/**", "/api/v1/verify/reject/**")
                         .hasAuthority("APPROVE_VERIFICATION")
@@ -76,5 +81,27 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    // --- NEW BEAN TO FIX "FAILED TO FETCH" / CORS ERRORS ---
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        // 1. Allow your frontend origin (Adjust port if your Next.js runs on something else)
+        configuration.setAllowedOrigins(List.of("http://localhost:3000"));
+
+        // 2. Allow standard HTTP methods
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+
+        // 3. Allow all headers (Authorization, Content-Type, etc.)
+        configuration.setAllowedHeaders(List.of("*"));
+
+        // 4. Allow credentials (cookies/auth headers) if needed
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 }

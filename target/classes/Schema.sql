@@ -60,21 +60,19 @@ CREATE TABLE company (
 CREATE TABLE users (
                        id BIGSERIAL PRIMARY KEY, -- Internal ID
                        user_uuid UUID NOT NULL UNIQUE, -- External ID
-
-    -- Auth fields
                        email VARCHAR(255) UNIQUE NOT NULL,
                        user_password TEXT NOT NULL,
                        company_id BIGINT, -- FK uses internal ID
                        status VARCHAR(20) NOT NULL DEFAULT 'active', -- 'pending', 'active', 'banned'
                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                        last_login TIMESTAMP,
-                       phone_number VARCHAR(20) UNIQUE,
-                       phone_verified BOOLEAN DEFAULT FALSE,
+                       token_version INT DEFAULT 0,
                        verified BOOLEAN DEFAULT FALSE, -- For ID card verification
 
                        CONSTRAINT fk_user_company FOREIGN KEY (company_id) REFERENCES company(id)
                            ON DELETE SET NULL
 );
+drop table users cascade ;
 ALTER TABLE users ADD COLUMN token_version INT DEFAULT 0;
 
 CREATE TABLE user_profile (
@@ -83,13 +81,18 @@ CREATE TABLE user_profile (
                               first_name VARCHAR(100),
                               last_name VARCHAR(100),
                               user_name VARCHAR(100),
+                              email VARCHAR(100),
+                              phone_number VARCHAR(100),
                               user_profile VARCHAR(255), -- Avatar URL
-                              dob DATE,
                               address TEXT,
+                              city TEXT,
+                              country TEXT,
+                              Postal_Code VARCHAR(255),
                               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                               updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                               CONSTRAINT fk_profile_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+drop table user_profile cascade ;
 
 CREATE TABLE role (
 

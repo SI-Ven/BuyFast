@@ -16,8 +16,11 @@ public interface UserService {
     UserProfile updateUserProfile(
             String firstName,
             String lastName,
-            LocalDate dob,
+            String email,       // <-- Added
             String address,
+            String city,        // <-- Added
+            String country,     // <-- Added
+            String postalCode,  // <-- Added
             String phoneNumber,
             UserDetails userDetails,
             MultipartFile profilePictureFile);

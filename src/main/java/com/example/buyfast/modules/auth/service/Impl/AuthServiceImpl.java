@@ -74,7 +74,7 @@ public class AuthServiceImpl implements AuthService {
         profile.setLastName(request.getLastName());
         // Simple default username. You might want to make this unique logic later.
         profile.setUserName(request.getFirstName() + request.getLastName());
-
+        profile.setEmail(request.getEmail());
         userProfileRepo.create(profile);
 
         // 4. Assign Role
