@@ -24,15 +24,13 @@ public class User implements UserDetails {
     @JsonIgnore
     private String userPassword;
 
-    private String phoneNumber;
-    private Boolean phoneVerified;
-    private Boolean verified;
+    // Removed phoneNumber and phoneVerified to match SQL Schema
+    private Boolean verified; // Matches 'verified' column (ID card verification)
     private String status;
     private Long companyId;
     private Timestamp createdAt;
     private Timestamp lastLogin;
 
-    // --- NEW FIELD ---
     @JsonIgnore
     private Integer tokenVersion = 0;
 

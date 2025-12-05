@@ -1,6 +1,6 @@
 package com.example.buyfast.modules.user.repository;
 
-import com.example.buyfast.config.mybatis.UuidTypeHandler; // Import your handler
+import com.example.buyfast.config.mybatis.UuidTypeHandler;
 import com.example.buyfast.modules.user.model.User;
 import org.apache.ibatis.annotations.*;
 
@@ -11,12 +11,12 @@ import java.util.UUID;
 @Mapper
 public interface UserRepo {
 
-    @Insert("INSERT INTO users (user_uuid, email, user_password, status, created_at, company_id, token_version) " +
-            "VALUES (#{userUuid}, #{email}, #{userPassword}, #{status}, CURRENT_TIMESTAMP, #{companyId}, 0)")
+    // Matches Schema: ID is generated, verified defaults to false in DB if null, or you can add it here if needed
+    @Insert("INSERT INTO users (user_uuid, email, user_password, status, created_at, company_id, token_version, verified) " +
+            "VALUES (#{userUuid}, #{email}, #{userPassword}, #{status}, CURRENT_TIMESTAMP, #{companyId}, 0, #{verified})")
     @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
     void save(User user);
 
-    // --- FIXED: FETCH ROLES AND PERMISSIONS ---
     @Select("SELECT * FROM users WHERE email = #{email}")
     @Results({
             @Result(property = "id", column = "id"),
@@ -47,8 +47,7 @@ public interface UserRepo {
     @Update("UPDATE users SET user_password = #{newPassword} WHERE email = #{email}")
     void updatePassword(String email, String newPassword);
 
-    @Update("UPDATE users SET phone_verified = true WHERE id = #{id}")
-    void setPhoneVerified(Long id);
+    // Removed setPhoneVerified (column 'phone_verified' does not exist in new schema)
 
     @Update("UPDATE users SET verified = #{isVerified} WHERE id = #{id}")
     void setVerifiedStatus(@Param("id") Long id, @Param("isVerified") boolean isVerified);
@@ -77,6 +76,5 @@ public interface UserRepo {
     @Update("UPDATE users SET status = #{status} WHERE user_uuid = #{uuid}")
     void updateUserStatusByUuid(@Param("uuid") UUID uuid, @Param("status") String status);
 
-    @Update("UPDATE users SET phone_number = #{phoneNumber}, phone_verified = false WHERE id = #{id}")
-    void updateUserPhoneNumber(@Param("id") Long id, @Param("phoneNumber") String phoneNumber);
+    // Removed updateUserPhoneNumber (column 'phone_number' does not exist in new schema)
 }

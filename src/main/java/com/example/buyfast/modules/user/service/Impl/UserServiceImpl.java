@@ -48,14 +48,14 @@ public class UserServiceImpl implements UserService {
                     newProfile.setUserId(currentUser.getId());
                     // Set defaults from User entity if available
                     newProfile.setEmail(currentUser.getEmail());
-                    newProfile.setPhoneNumber(currentUser.getPhoneNumber());
+                    // Removed: newProfile.setPhoneNumber(...) as User no longer has phoneNumber
                     userProfileRepo.create(newProfile);
                     return newProfile;
                 });
 
         boolean profileUpdated = false;
 
-        // 2. Update Fields
+        // 2. Update Fields on UserProfile
         if (firstName != null) { profile.setFirstName(firstName); profileUpdated = true; }
         if (lastName != null) { profile.setLastName(lastName); profileUpdated = true; }
         if (email != null) { profile.setEmail(email); profileUpdated = true; }
@@ -75,22 +75,16 @@ public class UserServiceImpl implements UserService {
             profileUpdated = true;
         }
 
-        // 3. Handle Phone Verification on Main User Table
-        // (If phone changed, update User table and reset verification)
-        if (phoneNumber != null && !phoneNumber.equals(currentUser.getPhoneNumber())) {
-            currentUser.setPhoneNumber(phoneNumber);
-            currentUser.setPhoneVerified(false);
-            userRepo.updateUserPhoneNumber(currentUser.getId(), phoneNumber);
-        }
+        // Removed: Section 3 that updated User table phone number (columns removed from DB)
 
-        // 4. Handle File Upload
+        // 3. Handle File Upload
         if (profilePictureFile != null && !profilePictureFile.isEmpty()) {
             String newProfilePicUrl = storageService.uploadFile(profilePictureFile);
             profile.setUserProfile(newProfilePicUrl);
             profileUpdated = true;
         }
 
-        // 5. Persist changes
+        // 4. Persist changes
         if (profileUpdated) {
             userProfileRepo.update(profile);
         }
@@ -140,8 +134,4 @@ public class UserServiceImpl implements UserService {
                 .ifPresent(profile -> currentUser.setUserProfile(profile));
         return currentUser;
     }
-
-
-
-
 }
