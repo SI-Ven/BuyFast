@@ -15,9 +15,14 @@ public class UserProfile {
     private String firstName;
     private String lastName;
     private String userName;
+    private String email;
+    private String phoneNumber;
     private String userProfile; // Avatar URL
-    private LocalDate dob; // <-- CHANGE THIS
     private String address;
+    private String city;
+    private String country;
+    private String postalCode;
     private Timestamp createdAt;
     private Timestamp updatedAt;
 }
+

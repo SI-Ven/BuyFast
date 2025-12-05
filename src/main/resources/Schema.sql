@@ -83,13 +83,18 @@ CREATE TABLE user_profile (
                               first_name VARCHAR(100),
                               last_name VARCHAR(100),
                               user_name VARCHAR(100),
+                              email VARCHAR(100),
+                              phone_number VARCHAR(100),
                               user_profile VARCHAR(255), -- Avatar URL
-                              dob DATE,
                               address TEXT,
+                              city TEXT,
+                              country TEXT,
+                              Postal_Code VARCHAR(255),
                               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                               updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                               CONSTRAINT fk_profile_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+drop table user_profile cascade ;
 
 CREATE TABLE role (
 

@@ -1,4 +1,5 @@
 package com.example.buyfast.modules.chat.controller;
+
 import com.example.buyfast.modules.chat.model.ChatMessage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -7,6 +8,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
 import java.time.LocalDateTime;
+import java.security.Principal;
 
 @Controller
 @RequiredArgsConstructor
@@ -14,32 +16,40 @@ public class ChatController {
 
     private final SimpMessagingTemplate messagingTemplate;
 
-    /**
-     * Handles private messages.
-     * Client sends JSON to: /app/chat.sendPrivateMessage
-     */
     @MessageMapping("/chat.sendPrivateMessage")
-    public void sendPrivateMessage(@Payload ChatMessage chatMessage) {
-        // 1. Set timestamp
+    public void sendPrivateMessage(@Payload ChatMessage chatMessage, Principal principal) {
+        // --- 1. DEBUG LOGS (Add these to see what is happening) ---
+        System.out.println(">>> HIT CONTROLLER: sendPrivateMessage");
+
+        if (principal == null) {
+            System.out.println("ERROR: Principal is NULL. User not authenticated in WebSocket.");
+            return;
+        }
+
+        System.out.println("1. Sender (Principal): " + principal.getName());
+        System.out.println("2. Raw Recipient ID: " + chatMessage.getRecipientId());
+
+        // --- 2. LOGIC ---
+        String cleanRecipient = chatMessage.getRecipientId().toLowerCase().trim();
+        chatMessage.setRecipientId(cleanRecipient);
         chatMessage.setTimestamp(LocalDateTime.now().toString());
 
-        // 2. TODO: Save 'chatMessage' to your Database here (Review/Chat Service)
-        // chatService.save(chatMessage);
+        System.out.println("3. Sending to Clean Recipient: " + cleanRecipient);
 
-        // 3. Send to Recipient (The Seller)
-        // Destination on client: /user/queue/messages
+        // --- 3. SENDING ---
+        // Send to Recipient
         messagingTemplate.convertAndSendToUser(
-                chatMessage.getRecipientId(), // This MUST be the Seller's Email
+                chatMessage.getRecipientId(),
                 "/queue/messages",
                 chatMessage
         );
 
-        // 4. Send back to Sender (so they see their own message)
-        // Destination on client: /user/queue/messages
+        // Echo back to Sender
         messagingTemplate.convertAndSendToUser(
-                chatMessage.getSenderId(),    // This MUST be the Buyer's Email
+                chatMessage.getSenderId(),
                 "/queue/messages",
                 chatMessage
         );
+        System.out.println(">>> MESSAGES SENT");
     }
 }
