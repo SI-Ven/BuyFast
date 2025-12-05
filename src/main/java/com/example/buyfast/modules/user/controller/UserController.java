@@ -64,24 +64,7 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success("Your request to become a seller has been submitted for approval.", verificationRequest));
     }
 
-    @PostMapping("/phone/send-otp")
-    public ResponseEntity<ApiResponse<Object>> sendPhoneOtp(
-            @AuthenticationPrincipal UserDetails userDetails) {
-        userService.sendPhoneVerificationOtp(userDetails);
-        return ResponseEntity.ok(ApiResponse.ok("OTP sent to your phone number."));
-    }
 
-    @PostMapping("/phone/verify-otp")
-    public ResponseEntity<ApiResponse<User>> verifyPhoneOtp(
-            @Valid @RequestBody Map<String, String> payload,
-            @AuthenticationPrincipal UserDetails userDetails) {
 
-        String otpCode = payload.get("otpCode");
-        if (otpCode == null || otpCode.isBlank()) {
-            throw new IllegalStateException("otpCode is required.");
-        }
 
-        User user = userService.verifyPhone(otpCode, userDetails);
-        return ResponseEntity.ok(ApiResponse.success("Phone number verified successfully.", user));
-    }
 }

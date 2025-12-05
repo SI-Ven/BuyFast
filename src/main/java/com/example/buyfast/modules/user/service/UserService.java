@@ -26,9 +26,8 @@ public interface UserService {
             MultipartFile profilePictureFile);
     Verify becomeSeller(UserDetails userDetails);
 
-    void sendPhoneVerificationOtp(UserDetails userDetails);
 
-    User verifyPhone(String otpCode, UserDetails userDetails);
+
 
     // --- NEW METHOD ---
     void deleteUser(UserDetails userDetails);
