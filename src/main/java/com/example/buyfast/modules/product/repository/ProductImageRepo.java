@@ -30,7 +30,10 @@ public interface ProductImageRepo {
     @Select("SELECT * FROM product_image WHERE product_id = #{productId}")
     List<ProductImage> findAllByProductId(@Param("productId") Long productId);
 
-    // --- NEW METHOD FOR UPDATE LOGIC ---
     @Delete("DELETE FROM product_image WHERE product_id = #{productId}")
     void deleteAllByProductId(@Param("productId") Long productId);
+
+    // --- CRITICAL FIX: Added @Param("productId") to match #{productId} ---
+    @Select("SELECT * FROM product_image WHERE product_id = #{productId} AND is_main = true LIMIT 1")
+    Optional<ProductImage> findFirstByProductIdAndIsMainTrue(@Param("productId") Long productId);
 }

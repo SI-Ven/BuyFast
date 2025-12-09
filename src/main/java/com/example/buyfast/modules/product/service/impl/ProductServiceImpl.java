@@ -6,19 +6,28 @@ import com.example.buyfast.modules.product.dto.*;
 import com.example.buyfast.modules.product.model.*;
 import com.example.buyfast.modules.product.repository.*;
 import com.example.buyfast.modules.product.search.ProductDocument;
-import com.example.buyfast.modules.product.search.ProductSearchRepo; // <--- 1. IMPORT ADDED
+import com.example.buyfast.modules.product.search.ProductSearchRepo;
 import com.example.buyfast.modules.product.service.ProductService;
+import com.example.buyfast.modules.product.service.VectorEmbeddingService;
 import com.example.buyfast.modules.user.model.User;
 import com.example.buyfast.util.UuidService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j; // 1. Added Logging
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.query.StringQuery;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j // 2. Enable Logging
 @Service
 @RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
@@ -27,15 +36,17 @@ public class ProductServiceImpl implements ProductService {
     private final CategoryRepo categoryRepo;
     private final UuidService uuidService;
 
-    // --- NEW REPOS ---
+    // --- REPOS ---
     private final ProductOptionRepo productOptionRepo;
     private final ProductOptionValueRepo productOptionValueRepo;
     private final ProductVariantRepo productVariantRepo;
     private final ProductVariantValuesRepo productVariantValuesRepo;
     private final ProductImageRepo productImageRepo;
 
-    // --- SEARCH REPO ---
-    private final ProductSearchRepo productSearchRepo; // <--- 2. INJECTED
+    // --- SEARCH & VECTOR SERVICES ---
+    private final ProductSearchRepo productSearchRepo;
+    private final VectorEmbeddingService vectorEmbeddingService;
+    private final ElasticsearchOperations elasticsearchOperations;
 
     // =================================================================
     // 1. CREATE PRODUCT (With Search Sync)
@@ -64,7 +75,6 @@ public class ProductServiceImpl implements ProductService {
         List<ProductResponse.VariantResponse> variantResponses = new ArrayList<>();
         boolean mainImageSet = false;
 
-        // New Hint Variables
         BigDecimal minPrice = null;
         BigDecimal maxPrice = null;
         Map<String, Set<String>> optionsSummary = new HashMap<>();
@@ -73,15 +83,10 @@ public class ProductServiceImpl implements ProductService {
         // 3. Process Variants
         for (VariantRequest variantReq : request.getVariants()) {
 
-            // --- A. CALCULATE PRICE RANGE HINTS ---
+            // --- Price Calculation ---
             BigDecimal price = variantReq.getPrice();
-            if (minPrice == null || price.compareTo(minPrice) < 0) {
-                minPrice = price;
-            }
-            if (maxPrice == null || price.compareTo(maxPrice) > 0) {
-                maxPrice = price;
-            }
-            // --------------------------------------
+            if (minPrice == null || price.compareTo(minPrice) < 0) minPrice = price;
+            if (maxPrice == null || price.compareTo(maxPrice) > 0) maxPrice = price;
 
             ProductVariant variant = new ProductVariant();
             variant.setVariantUuid(uuidService.generateUuid());
@@ -90,7 +95,6 @@ public class ProductServiceImpl implements ProductService {
             variant.setStockQuantity(variantReq.getStockQuantity());
             variant.setActive(true);
 
-            // Generate simple SKU
             String sku = request.getProductName().substring(0, Math.min(3, request.getProductName().length())).toUpperCase()
                     + "-" + variant.getVariantUuid().toString().substring(0, 8);
             variant.setSku(sku);
@@ -101,12 +105,9 @@ public class ProductServiceImpl implements ProductService {
 
             // 4. Process Options
             for (OptionValueRequest optionReq : variantReq.getOptions()) {
-
-                // --- B. COLLECT OPTION HINTS ---
                 optionsSummary.computeIfAbsent(optionReq.getOptionName(), k -> new HashSet<>())
                         .add(optionReq.getValueName());
 
-                // Save/Get Option
                 ProductOption option = productOptionRepo.findByProductIdAndOptionName(product.getId(), optionReq.getOptionName())
                         .orElseGet(() -> {
                             ProductOption newOpt = new ProductOption();
@@ -117,7 +118,6 @@ public class ProductServiceImpl implements ProductService {
                             return newOpt;
                         });
 
-                // Save/Get Value
                 ProductOptionValue value = productOptionValueRepo.findByOptionIdAndValueName(option.getId(), optionReq.getValueName())
                         .orElseGet(() -> {
                             ProductOptionValue newVal = new ProductOptionValue();
@@ -142,6 +142,7 @@ public class ProductServiceImpl implements ProductService {
                             image.setOptionValueId(value.getId());
                             image.setVariantId(variant.getId());
 
+                            // Ensure logic for main image
                             if (!mainImageSet) {
                                 image.setIsMain(true);
                                 mainImageSet = true;
@@ -172,8 +173,8 @@ public class ProductServiceImpl implements ProductService {
         }
 
         // --- SYNC TO ELASTICSEARCH ---
+        // This MUST be called after images are inserted into DB
         saveToElasticsearch(product, category, minPrice);
-        // -----------------------------
 
         return ProductResponse.builder()
                 .id(product.getId())
@@ -194,18 +195,14 @@ public class ProductServiceImpl implements ProductService {
     public ProductResponse getMyProduct(UUID productUuid, UserDetails sellerDetails) {
         User seller = (User) sellerDetails;
 
-        // A. Get Parent Product
         Product product = productRepo.findByUuidAndSellerId(productUuid, seller.getId())
                 .orElseThrow(() -> new IllegalStateException("Product not found"));
 
-        // B. Get All Variants
         List<ProductVariant> variants = productVariantRepo.findAllByProductId(product.getId());
 
-        // Hints Calculation
         BigDecimal minPrice = null;
         BigDecimal maxPrice = null;
         Map<String, Set<String>> optionsSummary = new HashMap<>();
-
         List<ProductResponse.VariantResponse> variantResponses = new ArrayList<>();
 
         for (ProductVariant variant : variants) {
@@ -254,7 +251,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     // =================================================================
-    // 2. UPDATE PRODUCT (Updates Main Info & Syncs Search)
+    // 2. UPDATE PRODUCT
     // =================================================================
     @Override
     @Transactional
@@ -263,12 +260,10 @@ public class ProductServiceImpl implements ProductService {
         Product product = productRepo.findByUuidAndSellerId(productUuid, seller.getId())
                 .orElseThrow(() -> new IllegalStateException("Product not found"));
 
-        // 1. Update Base Fields
         if (request.getProductName() != null) product.setProductName(request.getProductName());
         if (request.getDescription() != null) product.setDescription(request.getDescription());
         if (request.getIsActive() != null) product.setActive(request.getIsActive());
 
-        // 2. Update Category
         if (request.getCategoryUuid() != null) {
             Category category = categoryRepo.findByCategoryUuid(request.getCategoryUuid())
                     .orElseThrow(() -> new IllegalArgumentException("Category not found"));
@@ -277,7 +272,6 @@ public class ProductServiceImpl implements ProductService {
 
         productRepo.update(product);
 
-        // 3. Update Variants if provided
         if (request.getVariants() != null && !request.getVariants().isEmpty()) {
             productImageRepo.deleteAllByProductId(product.getId());
             productVariantRepo.deleteAllByProductId(product.getId());
@@ -285,11 +279,7 @@ public class ProductServiceImpl implements ProductService {
             processVariants(product, request.getVariants());
         }
 
-        // 4. SYNC TO ELASTICSEARCH
-        // We need minPrice and Category Name for the search document
         Category category = categoryRepo.findById(product.getCategoryId()).orElse(new Category());
-
-        // Recalculate minPrice for the sync
         List<ProductVariant> currentVariants = productVariantRepo.findAllByProductId(product.getId());
         BigDecimal minPrice = currentVariants.stream()
                 .map(ProductVariant::getPrice)
@@ -297,7 +287,6 @@ public class ProductServiceImpl implements ProductService {
                 .orElse(BigDecimal.ZERO);
 
         saveToElasticsearch(product, category, minPrice);
-        // -------------------------
 
         return getMyProduct(productUuid, sellerDetails);
     }
@@ -367,25 +356,19 @@ public class ProductServiceImpl implements ProductService {
         }
     }
 
-    // =================================================================
-    // 3. DELETE PRODUCT (Cascade handles everything + Remove from ES)
-    // =================================================================
     @Override
     @Transactional
     public void deleteProduct(UUID productUuid, UserDetails sellerDetails) {
         User seller = (User) sellerDetails;
-
         Product product = productRepo.findByUuidAndSellerId(productUuid, seller.getId())
                 .orElseThrow(() -> new IllegalStateException("Product not found or permission denied."));
 
-        // Delete from Postgres
         productRepo.deleteByUuidAndSellerId(product.getProductUuid(), seller.getId());
 
-        // --- REMOVE FROM ELASTICSEARCH ---
         try {
             productSearchRepo.deleteById(product.getId());
         } catch (Exception e) {
-            System.err.println("Warning: Failed to delete product from Elasticsearch: " + e.getMessage());
+            log.error("Warning: Failed to delete product from Elasticsearch: {}", e.getMessage());
         }
     }
 
@@ -397,12 +380,39 @@ public class ProductServiceImpl implements ProductService {
     }
 
     // =================================================================
-    // 4. SEARCH PRODUCTS (ELASTICSEARCH)
+    // 4. SEARCH METHODS
     // =================================================================
     @Override
     public List<ProductDocument> searchProducts(String keyword) {
-        // This leverages the Elasticsearch engine
         return productSearchRepo.findByProductNameContaining(keyword);
+    }
+
+    @Override
+    public List<ProductDocument> searchProductsByImage(MultipartFile image) {
+        List<Double> searchVector = vectorEmbeddingService.getVectorFromFile(image);
+
+        if (searchVector == null || searchVector.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        String script = "cosineSimilarity(params.query_vector, 'imageVector') + 1.0";
+        String querySource = "{" +
+                "  \"script_score\": {" +
+                "    \"query\": {\"match_all\": {}}," +
+                "    \"script\": {" +
+                "      \"source\": \"" + script + "\"," +
+                "      \"params\": {" +
+                "        \"query_vector\": " + searchVector.toString() +
+                "      }" +
+                "    }" +
+                "  }" +
+                "}";
+
+        StringQuery query = new StringQuery(querySource);
+        query.setPageable(PageRequest.of(0, 10));
+
+        SearchHits<ProductDocument> hits = elasticsearchOperations.search(query, ProductDocument.class);
+        return hits.stream().map(SearchHit::getContent).collect(Collectors.toList());
     }
 
     // --- HELPER TO SYNC DATA ---
@@ -412,15 +422,32 @@ public class ProductServiceImpl implements ProductService {
             doc.setId(product.getId());
             doc.setProductName(product.getProductName());
             doc.setDescription(product.getDescription());
-            // Assuming getter is getCategoryName() based on Schema or standard convention.
-            // If Schema.sql column is category_name, MyBatis mapping handles it to field 'categoryName' typically.
             doc.setCategoryName(category.getCategoryName());
             doc.setMinPrice(minPrice != null ? minPrice.doubleValue() : 0.0);
 
+            // Fetch Main Image
+            Optional<ProductImage> mainImageOpt = productImageRepo.findFirstByProductIdAndIsMainTrue(product.getId());
+
+            if (mainImageOpt.isPresent()) {
+                String imageUrl = mainImageOpt.get().getImageUrl();
+                log.info("Found main image for vectorization: {}", imageUrl); // Debug Log
+
+                List<Double> vector = vectorEmbeddingService.getVectorFromUrl(imageUrl);
+
+                if (vector != null && !vector.isEmpty()) {
+                    doc.setImageVector(vector);
+                    log.info("Vector generated successfully for Product ID: {}", product.getId());
+                } else {
+                    log.warn("Vector service returned NULL/Empty for Product ID: {}", product.getId());
+                }
+            } else {
+                log.warn("No main image found for Product ID: {} - Skipping vectorization", product.getId());
+            }
+
             productSearchRepo.save(doc);
+
         } catch (Exception e) {
-            // Log error so transaction doesn't rollback due to search engine failure
-            System.err.println("Error syncing product to Elasticsearch: " + e.getMessage());
+            log.error("Error syncing product to Elasticsearch: ", e);
         }
     }
 }

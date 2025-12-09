@@ -8,6 +8,7 @@
     <file url="file://$PROJECT_DIR$/src/main/java/com/example/buyfast/modules/favorite/repository/FavoriteRepo.java" dialect="GenericSQL" />
     <file url="file://$PROJECT_DIR$/src/main/java/com/example/buyfast/modules/order/repository/OrderItemRepo.java" dialect="GenericSQL" />
     <file url="file://$PROJECT_DIR$/src/main/java/com/example/buyfast/modules/order/repository/OrderRepo.java" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/src/main/java/com/example/buyfast/modules/product/repository/ProductImageRepo.java" dialect="GenericSQL" />
     <file url="file://$PROJECT_DIR$/src/main/java/com/example/buyfast/modules/product/repository/ProductOptionRepo.java" dialect="GenericSQL" />
     <file url="file://$PROJECT_DIR$/src/main/java/com/example/buyfast/modules/product/repository/ProductRepo.java" dialect="GenericSQL" />
     <file url="file://$PROJECT_DIR$/src/main/java/com/example/buyfast/modules/product/repository/ProductVariantRepo.java" dialect="GenericSQL" />

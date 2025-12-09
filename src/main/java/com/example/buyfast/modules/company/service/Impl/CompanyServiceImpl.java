@@ -57,64 +57,6 @@ public class CompanyServiceImpl implements CompanyService {
         return company;
     }
 
-    @Override
-    @Transactional
-    public Company createCompany(CreateCompanyRequest request, UserDetails adminDetails) {
-        User adminUser = (User) adminDetails;
-
-        // Check if user is already in a company
-        if (adminUser.getCompanyId() != null) {
-            throw new IllegalStateException("User is already part of a company.");
-        }
-
-        // Check eligibility (Buyer or Seller role)
-        boolean isEligible = adminUser.getRoles().stream()
-                .anyMatch(role -> "buyer".equals(role.getRoleName()) ||
-                        "seller".equals(role.getRoleName()));
-
-        if (!isEligible) {
-            throw new IllegalStateException("Only buyers or individual sellers can create a new company.");
-        }
-
-        // Check if user already owns a company
-        if (companyRepo.findByAdminId(adminUser.getId()).isPresent()) {
-            throw new IllegalStateException("User already owns a company.");
-        }
-
-        // 2. Create Company
-        Company company = new Company();
-        company.setCompanyUuid(uuidService.generateUuid());
-        company.setCompanyName(request.getCompanyName());
-        company.setIndustryType(request.getIndustryType());
-        company.setDescription(request.getDescription());
-        company.setCreatedBy(adminUser.getId());
-        company.setMaxSellers(3); // Default value
-        company.setStatus("pending");
-        companyRepo.insert(company);
-
-        // 3. Link user to company & assign role
-        // --- FIXED: Split into company update and role assignment ---
-
-        // A. Update Company ID
-        userRepo.updateUserCompanyId(adminUser.getId(), company.getId());
-
-        // B. Assign 'admin_company' role
-        Role adminRole = roleRepo.findByRoleName("admin_company")
-                .orElseThrow(() -> new IllegalStateException("Role 'admin_company' not found. Please seed the database."));
-        roleRepo.insertUserRole(adminUser.getId(), adminRole.getId());
-
-
-        // 4. Create Verification Request
-        Verify verification = new Verify();
-        verification.setVerifyUuid(uuidService.generateUuid());
-        verification.setTargetType("company");
-        verification.setTargetId(company.getCompanyUuid());
-        verification.setSubmittedBy(adminUser.getId());
-        verification.setStatus("pending");
-        verifyRepo.createVerification(verification);
-
-        return company;
-    }
 
     @Override
     public CompanyDashboardDto getCompanyDashboard(UserDetails adminDetails) {
@@ -284,6 +226,69 @@ public class CompanyServiceImpl implements CompanyService {
         }
 
         companyRepo.updateCompanyProfile(company);
+        return company;
+    }
+
+    @Override
+    @Transactional
+    public Company createCompany(CreateCompanyRequest request, MultipartFile logoFile, UserDetails adminDetails) {
+        User adminUser = (User) adminDetails;
+
+        // 1. Validation
+        if (adminUser.getCompanyId() != null) {
+            throw new IllegalStateException("User is already part of a company.");
+        }
+        if (companyRepo.findByAdminId(adminUser.getId()).isPresent()) {
+            throw new IllegalStateException("User already owns a company.");
+        }
+
+        // 2. Upload Logo
+        String logoUrl = null;
+        if (logoFile != null && !logoFile.isEmpty()) {
+            logoUrl = storageService.uploadFile(logoFile);
+        }
+
+        // 3. Create Company Entity
+        Company company = new Company();
+        company.setCompanyUuid(uuidService.generateUuid());
+        company.setCompanyName(request.getCompanyName());
+        company.setIndustryType(request.getIndustryType());
+        company.setTaxId(request.getTaxId()); // --- Mapped Tax ID ---
+        company.setPhoneNumber(request.getPhoneNumber());
+        company.setDescription(request.getDescription());
+        company.setLogoUrl(logoUrl); // --- Set Logo URL ---
+
+        // Address
+        company.setAddressLine1(request.getAddressLine1());
+        company.setCity(request.getCity());
+        company.setStateProvince(request.getStateProvince());
+        company.setPostalCode(request.getPostalCode());
+        company.setCountry(request.getCountry());
+
+        company.setCreatedBy(adminUser.getId());
+        company.setMaxSellers(3);
+        company.setStatus("pending");
+
+        companyRepo.insert(company);
+
+        // 4. Update User (Link to company)
+        userRepo.updateUserCompanyId(adminUser.getId(), company.getId());
+
+        // 5. Assign 'admin_company' role
+        Role adminRole = roleRepo.findByRoleName("admin_company")
+                .orElseThrow(() -> new IllegalStateException("Role 'admin_company' not found."));
+        roleRepo.insertUserRole(adminUser.getId(), adminRole.getId());
+
+        // 6. Create Verification Request
+        Verify verification = new Verify();
+        verification.setVerifyUuid(uuidService.generateUuid());
+        verification.setTargetType("company");
+        verification.setTargetId(company.getCompanyUuid());
+        verification.setSubmittedBy(adminUser.getId());
+        verification.setStatus("pending");
+
+        verifyRepo.createVerification(verification);
+
         return company;
     }
 }

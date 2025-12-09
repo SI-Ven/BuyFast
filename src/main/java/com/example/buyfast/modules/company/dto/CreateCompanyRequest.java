@@ -15,8 +15,34 @@ public class CreateCompanyRequest {
     @Size(min = 3, max = 100)
     private String industryType;
 
+    // --- NEW FIELD ---
+    @NotBlank(message = "Tax ID is required")
+    @Size(max = 50)
+    private String taxId;
+
     private String description;
 
-    @Size(max = 512)
-    private String logoUrl;
+    @NotBlank(message = "Phone number is required")
+    @Size(max = 20)
+    private String phoneNumber;
+
+    // --- ADDRESS FIELDS ---
+    @NotBlank(message = "Address line 1 is required")
+    @Size(max = 255)
+    private String addressLine1;
+
+    @NotBlank(message = "City is required")
+    @Size(max = 100)
+    private String city;
+
+    @Size(max = 100)
+    private String stateProvince;
+
+    @NotBlank(message = "Postal code is required")
+    @Size(max = 20)
+    private String postalCode;
+
+    @NotBlank(message = "Country is required")
+    @Size(max = 100)
+    private String country;
 }

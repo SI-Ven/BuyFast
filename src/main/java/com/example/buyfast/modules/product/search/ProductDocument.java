@@ -6,6 +6,8 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
+import java.util.List;
+
 @Data
 @Document(indexName = "products")
 public class ProductDocument {
@@ -23,5 +25,10 @@ public class ProductDocument {
     private String categoryName;
 
     @Field(type = FieldType.Double)
-    private Double minPrice; // Lowest variant price
+    private Double minPrice;
+
+    // --- NEW VECTOR FIELD ---
+    // dims=512 is standard for CLIP models. Adjust if your model is different.
+    @Field(type = FieldType.Dense_Vector, dims = 512, index = true)
+    private List<Double> imageVector;
 }

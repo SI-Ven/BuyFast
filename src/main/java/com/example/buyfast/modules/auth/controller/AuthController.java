@@ -36,22 +36,6 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("User registered successfully. Please check your email for the OTP.", user));
     }
 
-    @PostMapping(value = "/register-company", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ApiResponse<User>> registerCompany(
-            @RequestPart("request") String requestJson,
-            @RequestPart(value = "logoFile", required = false) MultipartFile logoFile
-    ) throws JsonProcessingException {
-
-        RegisterCompanyRequest request =
-                new ObjectMapper().readValue(requestJson, RegisterCompanyRequest.class);
-
-        User user = authService.registerCompany(request, logoFile);
-
-        return ResponseEntity.ok(ApiResponse.success(
-                "Company and admin user registered successfully. Please check your email.",
-                user
-        ));
-    }
 
 
     @PostMapping("/verify-otp")

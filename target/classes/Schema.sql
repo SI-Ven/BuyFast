@@ -32,14 +32,20 @@ CREATE TABLE category (
 -- 3️⃣ COMPANY TABLE
 -- =======================================================
 CREATE TABLE company (
-                         id BIGSERIAL PRIMARY KEY, -- Internal ID
-                         company_uuid UUID NOT NULL UNIQUE, -- External ID
+                         id BIGSERIAL PRIMARY KEY,                -- Internal ID
+                         company_uuid UUID NOT NULL UNIQUE,       -- External ID
                          company_name VARCHAR(255) UNIQUE NOT NULL,
                          industry_type VARCHAR(100) NOT NULL,
+
+    -- --- NEW FIELDS ADDED ---
+                         tax_id VARCHAR(50),                      -- Tax ID / Business Reg No.
+                         phone_number VARCHAR(20),                -- Business Phone Number
+    -- ------------------------
+
                          logo_url VARCHAR(512),
                          description TEXT,
 
-    -- Address Fields --
+    -- Address Fields
                          address_line_1 VARCHAR(255),
                          city VARCHAR(100),
                          state_province VARCHAR(100),
@@ -47,11 +53,14 @@ CREATE TABLE company (
                          country VARCHAR(100),
 
                          verified BOOLEAN DEFAULT FALSE,
-                         created_by BIGINT, -- FK to users(id), nullable
+                         created_by BIGINT,                       -- FK to users(id)
                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                         status VARCHAR(20) DEFAULT 'active',
+
+    -- Changed default to 'pending' to match the "Upgrade" flow
+                         status VARCHAR(20) DEFAULT 'pending',
+
                          rating_average DECIMAL(3,2) DEFAULT 0.00,
-                         max_sellers INT DEFAULT 3 -- For seller limit
+                         max_sellers INT DEFAULT 3                -- For seller limit
 );
 
 -- =======================================================
@@ -73,8 +82,7 @@ CREATE TABLE users (
                            ON DELETE SET NULL
 );
 
-truncate table users restart identity cascade ;
-
+drop table users cascade ;
 
 CREATE TABLE user_profile (
                               id BIGSERIAL PRIMARY KEY,
@@ -134,6 +142,8 @@ CREATE TABLE user_role (
                            CONSTRAINT fk_userrole_role FOREIGN KEY (role_id) REFERENCES role(id) ON DELETE CASCADE,
                            PRIMARY KEY (user_id, role_id) -- Composite key
 );
+
+
 
 -- (Tracks all important actions for security and compliance)
 -- =======================================================

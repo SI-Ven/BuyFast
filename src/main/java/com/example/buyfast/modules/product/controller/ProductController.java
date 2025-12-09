@@ -10,11 +10,13 @@ import com.example.buyfast.modules.product.service.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -91,5 +93,14 @@ public class ProductController {
 
         List<ProductDocument> results = productService.searchProducts(keyword);
         return ResponseEntity.ok(ApiResponse.success("Search results found", results));
+    }
+
+    @PostMapping(value = "/search/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Search products by Image (Vector Search)")
+    public ResponseEntity<ApiResponse<List<ProductDocument>>> searchProductsByImage(
+            @RequestParam("image") MultipartFile image) {
+
+        List<ProductDocument> results = productService.searchProductsByImage(image);
+        return ResponseEntity.ok(ApiResponse.success("Image search results found", results));
     }
 }

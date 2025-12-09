@@ -19,15 +19,25 @@ public class Company {
     private String industryType;
     private String logoUrl;
     private String description;
+
+    // --- NEW FIELDS ---
+    @Size(max = 50)
+    private String taxId; // Added Tax ID
+
+    @Size(max = 20)
+    private String phoneNumber;
+
     private boolean verified;
-    private Long createdBy; // Internal ID of the admin_company user
+    private Long createdBy;
     private LocalDateTime createdAt;
     private String status;
     private Double ratingAverage;
     private Integer maxSellers;
+
     @NotBlank(message = "Address line 1 is required")
     @Size(max = 255)
     private String addressLine1;
+
     @NotBlank(message = "City is required")
     @Size(max = 100)
     private String city;

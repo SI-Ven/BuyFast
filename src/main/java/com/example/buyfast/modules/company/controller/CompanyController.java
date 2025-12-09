@@ -6,13 +6,12 @@ import com.example.buyfast.modules.company.model.Company; // <-- NEW IMPORT
 import com.example.buyfast.modules.company.service.CompanyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/company")
@@ -26,13 +25,18 @@ public class CompanyController {
      * This will upgrade their role to 'admin_company'.
      */
     // --- MODIFIED ---
-    @PostMapping
-    public ResponseEntity<ApiResponse<Company>> createCompany( // <-- Changed to ApiResponse<Company>
-                                                               @Valid @RequestBody CreateCompanyRequest request,
-                                                               @AuthenticationPrincipal UserDetails userDetails) {
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<Company>> createCompany(
+            @RequestPart("request") @Valid CreateCompanyRequest request,
+            @RequestPart(value = "logo", required = false) MultipartFile logo,
+            @AuthenticationPrincipal UserDetails userDetails) {
 
-        Company company = companyService.createCompany(request, userDetails);
-        return ResponseEntity.ok(ApiResponse.success("Company created successfully. You are now a company admin.", company));
+        Company company = companyService.createCompany(request, logo, userDetails);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Company created successfully. You are now a supplier.",
+                company
+        ));
     }
 
 }

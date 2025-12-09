@@ -12,7 +12,6 @@ public interface UserProfileRepo {
     @Results({
             @Result(property = "postalCode", column = "Postal_Code"),
             @Result(property = "userProfile", column = "user_profile"),
-            @Result(property = "coverProfile", column = "cover_profile"),
             @Result(property = "firstName", column = "first_name"),
             @Result(property = "lastName", column = "last_name"),
             @Result(property = "userName", column = "user_name"),

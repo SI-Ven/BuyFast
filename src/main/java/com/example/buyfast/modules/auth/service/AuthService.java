@@ -8,8 +8,6 @@ import org.springframework.web.multipart.MultipartFile;
 public interface AuthService {
     User register(RegisterRequest request);
 
-    User registerCompany(RegisterCompanyRequest request, MultipartFile logoFile);
-
     AuthResponse login(LoginRequest request);
 
     User verifyOtp(OtpRequest request);
