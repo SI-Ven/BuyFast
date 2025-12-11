@@ -104,10 +104,17 @@ public class CompanyServiceImpl implements CompanyService {
         profile.setUserName(request.getFirstName() + request.getLastName());
         userProfileRepo.create(profile);
 
-        // 3. Assign Role (Fixed: using RoleRepo)
+        // 3. Assign Roles: Give them BOTH 'seller_company' AND 'buyer'
+
+        // A. Assign Seller Role
         Role sellerRole = roleRepo.findByRoleName("seller_company")
                 .orElseThrow(() -> new IllegalStateException("Role 'seller_company' not found."));
         roleRepo.insertUserRole(newSeller.getId(), sellerRole.getId());
+
+        // B. Assign Buyer Role (So they can also buy products)
+        Role buyerRole = roleRepo.findByRoleName("buyer")
+                .orElseThrow(() -> new IllegalStateException("Role 'buyer' not found."));
+        roleRepo.insertUserRole(newSeller.getId(), buyerRole.getId());
 
         newSeller.setUserProfile(profile);
         return newSeller;
@@ -182,9 +189,6 @@ public class CompanyServiceImpl implements CompanyService {
         // Delete profile and then user
         userProfileRepo.deleteByUserId(seller.getId());
         userRepo.deleteById(seller.getId());
-
-        // Note: If you have a join table for roles (user_roles) without cascade delete,
-        // you might need to call roleRepo.deleteUserRoles(seller.getId()) here too.
 
         return seller;
     }
@@ -272,7 +276,7 @@ public class CompanyServiceImpl implements CompanyService {
         // 4. Update User (Link to company)
         userRepo.updateUserCompanyId(adminUser.getId(), company.getId());
 
-        // 5. Assign 'admin_company' role
+        // 5. Assign 'admin_company' role (User ALREADY has 'buyer' from registration, so we just ADD this)
         Role adminRole = roleRepo.findByRoleName("admin_company")
                 .orElseThrow(() -> new IllegalStateException("Role 'admin_company' not found."));
         roleRepo.insertUserRole(adminUser.getId(), adminRole.getId());
@@ -296,7 +300,6 @@ public class CompanyServiceImpl implements CompanyService {
         Company company = getActiveCompanyForAdmin(adminDetails);
 
         // 2. Fetch users with 'seller_company' role for this company
-        // This relies on the method already existing in your UserRepo
         return userRepo.findSellersByCompanyId(company.getId());
     }
 }
