@@ -81,7 +81,8 @@ CREATE TABLE users (
                        CONSTRAINT fk_user_company FOREIGN KEY (company_id) REFERENCES company(id)
                            ON DELETE SET NULL
 );
-
+delete from verify where id = 1;
+truncate table company restart identity cascade ;
 drop table users cascade ;
 
 CREATE TABLE user_profile (

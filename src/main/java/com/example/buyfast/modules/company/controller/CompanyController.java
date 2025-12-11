@@ -2,8 +2,11 @@ package com.example.buyfast.modules.company.controller;
 
 import com.example.buyfast.common.ApiResponse;
 import com.example.buyfast.modules.company.dto.CreateCompanyRequest;
-import com.example.buyfast.modules.company.model.Company; // <-- NEW IMPORT
+import com.example.buyfast.modules.company.model.Company;
 import com.example.buyfast.modules.company.service.CompanyService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Encoding;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -24,7 +27,14 @@ public class CompanyController {
      * Endpoint for an existing authenticated user (buyer/seller) to create a new company.
      * This will upgrade their role to 'admin_company'.
      */
-    // --- MODIFIED ---
+    @Operation(summary = "Create a new company",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody( // <--- USE FULL NAME HERE
+                    content = @Content(
+                            mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
+                            encoding = @Encoding(name = "request", contentType = "application/json")
+                    )
+            )
+    )
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<Company>> createCompany(
             @RequestPart("request") @Valid CreateCompanyRequest request,
@@ -38,5 +48,4 @@ public class CompanyController {
                 company
         ));
     }
-
 }

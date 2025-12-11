@@ -11,9 +11,9 @@ import java.util.UUID;
 public interface CompanyRepo {
 
     // ... (existing methods insert, findByAdminId, findById, findByUuid, updateCompanyStatus, updateCompanyProfile are unchanged) ...
-    @Insert("INSERT INTO company (company_uuid, company_name, industry_type, logo_url, description, created_by, status, max_sellers, " +
+    @Insert("INSERT INTO company (company_uuid, company_name, industry_type,tax_id, logo_url, description, created_by, status, max_sellers, " +
             "address_line_1, city, state_province, postal_code, country) " +
-            "VALUES (#{companyUuid}, #{companyName}, #{industryType}, #{logoUrl}, #{description}, #{createdBy}, #{status}, #{maxSellers}, " +
+            "VALUES (#{companyUuid}, #{companyName}, #{industryType},#{taxId}, #{logoUrl}, #{description}, #{createdBy}, #{status}, #{maxSellers}, " +
             "#{addressLine1}, #{city}, #{stateProvince}, #{postalCode}, #{country})")
     @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
     void insert(Company company);

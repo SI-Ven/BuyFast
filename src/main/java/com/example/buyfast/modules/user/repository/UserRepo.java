@@ -17,6 +17,9 @@ public interface UserRepo {
     @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
     void save(User user);
 
+    @Insert("INSERT INTO user_role (user_id, role_id) VALUES (#{userId}, #{roleId}) " +
+            "ON CONFLICT (user_id, role_id) DO NOTHING")
+    void insertUserRole(@Param("userId") Long userId, @Param("roleId") Long roleId);
     @Select("SELECT * FROM users WHERE email = #{email}")
     @Results({
             @Result(property = "id", column = "id"),

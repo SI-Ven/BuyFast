@@ -1,8 +1,7 @@
 package com.example.buyfast.modules.company.service.Impl;
 
-// --- Import all the new models and repos ---
 import com.example.buyfast.modules.auth.model.Role;
-import com.example.buyfast.modules.auth.repository.RoleRepo; // <-- NEW IMPORT
+import com.example.buyfast.modules.auth.repository.RoleRepo;
 import com.example.buyfast.modules.company.dto.*;
 import com.example.buyfast.modules.company.model.Company;
 import com.example.buyfast.modules.company.repository.CompanyRepo;
@@ -33,7 +32,7 @@ public class CompanyServiceImpl implements CompanyService {
     private final CompanyRepo companyRepo;
     private final UserRepo userRepo;
     private final UserProfileRepo userProfileRepo;
-    private final RoleRepo roleRepo; // <-- NEW: Inject RoleRepo
+    private final RoleRepo roleRepo;
     private final UuidService uuidService;
     private final PasswordEncoder passwordEncoder;
     private final StorageService storageService;
@@ -57,12 +56,10 @@ public class CompanyServiceImpl implements CompanyService {
         return company;
     }
 
-
     @Override
     public CompanyDashboardDto getCompanyDashboard(UserDetails adminDetails) {
         Company company = getActiveCompanyForAdmin(adminDetails);
 
-        // These methods now exist in UserRepo
         List<User> sellers = userRepo.findSellersByCompanyId(company.getId());
 
         List<SellerProfileDto> sellerDtos = sellers.stream()
@@ -107,8 +104,7 @@ public class CompanyServiceImpl implements CompanyService {
         profile.setUserName(request.getFirstName() + request.getLastName());
         userProfileRepo.create(profile);
 
-        // 3. Assign Role
-        // --- FIXED: Use RoleRepo instead of deleted userRepo method ---
+        // 3. Assign Role (Fixed: using RoleRepo)
         Role sellerRole = roleRepo.findByRoleName("seller_company")
                 .orElseThrow(() -> new IllegalStateException("Role 'seller_company' not found."));
         roleRepo.insertUserRole(newSeller.getId(), sellerRole.getId());
@@ -125,7 +121,7 @@ public class CompanyServiceImpl implements CompanyService {
         User seller = userRepo.findByUuid(sellerUuid)
                 .orElseThrow(() -> new IllegalStateException("Seller not found."));
 
-        // Check if seller belongs to the admin's company
+        // Security Check: ensure seller belongs to the admin's company
         if (!adminCompany.getId().equals(seller.getCompanyId())) {
             throw new IllegalStateException("You do not have permission to modify this seller.");
         }
@@ -156,7 +152,6 @@ public class CompanyServiceImpl implements CompanyService {
         }
 
         // 3. Persist User changes
-        // --- FIXED: Use updateUserStatus, as updateSellerProfile is deleted ---
         if (userUpdated) {
             userRepo.updateUserStatus(seller.getEmail(), seller.getStatus());
         }
@@ -174,12 +169,12 @@ public class CompanyServiceImpl implements CompanyService {
         User seller = userRepo.findByUuid(sellerUuid)
                 .orElseThrow(() -> new IllegalStateException("Seller not found."));
 
-        // Check if seller belongs to the admin's company
+        // Security Check: ensure seller belongs to the admin's company
         if (!adminCompany.getId().equals(seller.getCompanyId())) {
-            throw new IllegalStateException("You do not have permission to modify this seller.");
+            throw new IllegalStateException("You do not have permission to delete this seller.");
         }
 
-        // Prevent admin from deleting themselves
+        // Prevent admin from deleting themselves (just in case)
         if (adminUser.getId().equals(seller.getId())) {
             throw new IllegalStateException("Admin cannot delete themselves.");
         }
@@ -187,6 +182,9 @@ public class CompanyServiceImpl implements CompanyService {
         // Delete profile and then user
         userProfileRepo.deleteByUserId(seller.getId());
         userRepo.deleteById(seller.getId());
+
+        // Note: If you have a join table for roles (user_roles) without cascade delete,
+        // you might need to call roleRepo.deleteUserRoles(seller.getId()) here too.
 
         return seller;
     }
@@ -253,10 +251,10 @@ public class CompanyServiceImpl implements CompanyService {
         company.setCompanyUuid(uuidService.generateUuid());
         company.setCompanyName(request.getCompanyName());
         company.setIndustryType(request.getIndustryType());
-        company.setTaxId(request.getTaxId()); // --- Mapped Tax ID ---
+        company.setTaxId(request.getTaxId());
         company.setPhoneNumber(request.getPhoneNumber());
         company.setDescription(request.getDescription());
-        company.setLogoUrl(logoUrl); // --- Set Logo URL ---
+        company.setLogoUrl(logoUrl);
 
         // Address
         company.setAddressLine1(request.getAddressLine1());
@@ -266,7 +264,7 @@ public class CompanyServiceImpl implements CompanyService {
         company.setCountry(request.getCountry());
 
         company.setCreatedBy(adminUser.getId());
-        company.setMaxSellers(3);
+        company.setMaxSellers(3); // Default limit
         company.setStatus("pending");
 
         companyRepo.insert(company);
@@ -290,5 +288,15 @@ public class CompanyServiceImpl implements CompanyService {
         verifyRepo.createVerification(verification);
 
         return company;
+    }
+
+    @Override
+    public List<User> getCompanySellers(UserDetails adminDetails) {
+        // 1. Validate the admin and get their company
+        Company company = getActiveCompanyForAdmin(adminDetails);
+
+        // 2. Fetch users with 'seller_company' role for this company
+        // This relies on the method already existing in your UserRepo
+        return userRepo.findSellersByCompanyId(company.getId());
     }
 }
