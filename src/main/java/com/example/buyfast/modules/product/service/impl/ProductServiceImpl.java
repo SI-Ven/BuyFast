@@ -12,7 +12,7 @@ import com.example.buyfast.modules.product.service.VectorEmbeddingService;
 import com.example.buyfast.modules.user.model.User;
 import com.example.buyfast.util.UuidService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j; // 1. Added Logging
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
@@ -27,7 +27,7 @@ import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@Slf4j // 2. Enable Logging
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
@@ -49,7 +49,20 @@ public class ProductServiceImpl implements ProductService {
     private final ElasticsearchOperations elasticsearchOperations;
 
     // =================================================================
-    // 1. CREATE PRODUCT (With Search Sync)
+    // HELPER: Calculate Sale Price
+    // =================================================================
+    private BigDecimal calculateSalePrice(BigDecimal price, BigDecimal discountPercent) {
+        if (price == null) return BigDecimal.ZERO;
+        if (discountPercent == null || discountPercent.compareTo(BigDecimal.ZERO) <= 0) {
+            return price;
+        }
+        // Formula: Price * (1 - (Discount / 100))
+        BigDecimal discountFactor = BigDecimal.ONE.subtract(discountPercent.divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP));
+        return price.multiply(discountFactor).setScale(2, java.math.RoundingMode.HALF_UP);
+    }
+
+    // =================================================================
+    // 1. CREATE PRODUCT (With Search Sync & Discount)
     // =================================================================
     @Override
     @Transactional
@@ -83,16 +96,21 @@ public class ProductServiceImpl implements ProductService {
         // 3. Process Variants
         for (VariantRequest variantReq : request.getVariants()) {
 
-            // --- Price Calculation ---
-            BigDecimal price = variantReq.getPrice();
-            if (minPrice == null || price.compareTo(minPrice) < 0) minPrice = price;
-            if (maxPrice == null || price.compareTo(maxPrice) > 0) maxPrice = price;
+            // --- Price Calculation with Discount ---
+            BigDecimal discount = variantReq.getDiscountPercentage() != null ? variantReq.getDiscountPercentage() : BigDecimal.ZERO;
+            BigDecimal originalPrice = variantReq.getPrice();
+            BigDecimal effectivePrice = calculateSalePrice(originalPrice, discount);
+
+            // Update Min/Max using the Effective (Sale) Price
+            if (minPrice == null || effectivePrice.compareTo(minPrice) < 0) minPrice = effectivePrice;
+            if (maxPrice == null || effectivePrice.compareTo(maxPrice) > 0) maxPrice = effectivePrice;
 
             ProductVariant variant = new ProductVariant();
             variant.setVariantUuid(uuidService.generateUuid());
             variant.setProductId(product.getId());
-            variant.setPrice(variantReq.getPrice());
+            variant.setPrice(originalPrice);
             variant.setStockQuantity(variantReq.getStockQuantity());
+            variant.setDiscountPercentage(discount); // ✅ Save Discount
             variant.setActive(true);
 
             String sku = request.getProductName().substring(0, Math.min(3, request.getProductName().length())).toUpperCase()
@@ -166,6 +184,8 @@ public class ProductServiceImpl implements ProductService {
             variantResponses.add(ProductResponse.VariantResponse.builder()
                     .variantUuid(variant.getVariantUuid())
                     .price(variant.getPrice())
+                    .discountPercentage(variant.getDiscountPercentage()) // ✅ Return Discount
+                    .salePrice(effectivePrice) // ✅ Return Sale Price
                     .stockQuantity(variant.getStockQuantity())
                     .sku(variant.getSku())
                     .options(optionResponses)
@@ -206,8 +226,11 @@ public class ProductServiceImpl implements ProductService {
         List<ProductResponse.VariantResponse> variantResponses = new ArrayList<>();
 
         for (ProductVariant variant : variants) {
-            if (minPrice == null || variant.getPrice().compareTo(minPrice) < 0) minPrice = variant.getPrice();
-            if (maxPrice == null || variant.getPrice().compareTo(maxPrice) > 0) maxPrice = variant.getPrice();
+            // ✅ Calculate Effective Price for display
+            BigDecimal effectivePrice = calculateSalePrice(variant.getPrice(), variant.getDiscountPercentage());
+
+            if (minPrice == null || effectivePrice.compareTo(minPrice) < 0) minPrice = effectivePrice;
+            if (maxPrice == null || effectivePrice.compareTo(maxPrice) > 0) maxPrice = effectivePrice;
 
             List<ProductOptionValue> values = productVariantValuesRepo.findValuesByVariantId(variant.getId());
             List<ProductResponse.OptionResponse> optionResponses = new ArrayList<>();
@@ -229,6 +252,8 @@ public class ProductServiceImpl implements ProductService {
             variantResponses.add(ProductResponse.VariantResponse.builder()
                     .variantUuid(variant.getVariantUuid())
                     .price(variant.getPrice())
+                    .discountPercentage(variant.getDiscountPercentage()) // ✅ Include Discount
+                    .salePrice(effectivePrice) // ✅ Include Sale Price
                     .stockQuantity(variant.getStockQuantity())
                     .sku(variant.getSku())
                     .options(optionResponses)
@@ -251,7 +276,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     // =================================================================
-    // 2. UPDATE PRODUCT
+    // 2. UPDATE PRODUCT (With Discount Support)
     // =================================================================
     @Override
     @Transactional
@@ -280,9 +305,11 @@ public class ProductServiceImpl implements ProductService {
         }
 
         Category category = categoryRepo.findById(product.getCategoryId()).orElse(new Category());
+
+        // ✅ Fix MinPrice Logic to use Sale Price
         List<ProductVariant> currentVariants = productVariantRepo.findAllByProductId(product.getId());
         BigDecimal minPrice = currentVariants.stream()
-                .map(ProductVariant::getPrice)
+                .map(v -> calculateSalePrice(v.getPrice(), v.getDiscountPercentage()))
                 .min(Comparator.naturalOrder())
                 .orElse(BigDecimal.ZERO);
 
@@ -300,6 +327,11 @@ public class ProductServiceImpl implements ProductService {
             variant.setProductId(product.getId());
             variant.setPrice(variantReq.getPrice());
             variant.setStockQuantity(variantReq.getStockQuantity());
+
+            // ✅ Set Discount Logic
+            BigDecimal discount = variantReq.getDiscountPercentage() != null ? variantReq.getDiscountPercentage() : BigDecimal.ZERO;
+            variant.setDiscountPercentage(discount);
+
             variant.setActive(true);
 
             String sku = product.getProductName().substring(0, Math.min(3, product.getProductName().length())).toUpperCase()

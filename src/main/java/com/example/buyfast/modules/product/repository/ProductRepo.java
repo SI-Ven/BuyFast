@@ -49,22 +49,26 @@ public interface ProductRepo {
     // 3. Pagination (LIMIT/OFFSET) prevents loading too much data
     @Select("SELECT " +
             "p.id, p.product_uuid, p.product_name, p.description, p.category_id, p.is_active, " +
+            "u.email as seller_email, " + // <--- FETCH SELLER EMAIL
             "MIN(pv.price) as minPrice, " +
             "MAX(pv.price) as maxPrice, " +
             "(SELECT pi.image_url FROM product_image pi WHERE pi.product_id = p.id AND pi.is_main = true LIMIT 1) as mainImage " +
             "FROM product p " +
             "LEFT JOIN product_variant pv ON p.id = pv.product_id " +
+            "LEFT JOIN users u ON p.seller_id = u.id " + // <--- JOIN USERS TABLE
             "WHERE p.is_active = true " +
-            "GROUP BY p.id, p.product_uuid, p.product_name, p.description, p.category_id, p.is_active, p.created_at " +
+            "GROUP BY p.id, p.product_uuid, p.product_name, p.description, p.category_id, p.is_active, p.created_at, u.email " +
             "ORDER BY p.created_at DESC " +
             "LIMIT #{limit} OFFSET #{offset}")
     @Results({
+            @Result(property = "id", column = "id"),
             @Result(property = "productUuid", column = "product_uuid"),
             @Result(property = "productName", column = "product_name"),
             @Result(property = "categoryId", column = "category_id"),
             @Result(property = "minPrice", column = "minPrice"),
             @Result(property = "maxPrice", column = "maxPrice"),
-            @Result(property = "mainImage", column = "mainImage")
+            @Result(property = "mainImage", column = "mainImage"),
+            @Result(property = "sellerId", column = "seller_email") // <--- MAP IT HERE
     })
     List<ProductResponse> findAllActiveProductsSummary(@Param("limit") int limit, @Param("offset") int offset);
 }

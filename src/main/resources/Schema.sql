@@ -81,9 +81,9 @@ CREATE TABLE users (
                        CONSTRAINT fk_user_company FOREIGN KEY (company_id) REFERENCES company(id)
                            ON DELETE SET NULL
 );
-delete from verify where id = 1;
-truncate table company restart identity cascade ;
-drop table users cascade ;
+
+truncate table product_variant,product_option,product_option_value,product_variant_values restart identity cascade ;
+drop table product_variant cascade ;
 
 CREATE TABLE user_profile (
                               id BIGSERIAL PRIMARY KEY,
@@ -251,6 +251,7 @@ CREATE TABLE product_variant (
                                  sku VARCHAR(255) UNIQUE, -- Stock Keeping Unit
                                  price DECIMAL(10,2) NOT NULL,
                                  stock_quantity INT NOT NULL,
+                                 discount_percentage DECIMAL(5,2) DEFAULT 0.00,
                                  is_active BOOLEAN DEFAULT TRUE,
                                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                  CONSTRAINT fk_variant_product FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE CASCADE

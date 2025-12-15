@@ -13,7 +13,7 @@ import java.util.UUID;
 
 @Data
 @Builder
-@NoArgsConstructor // <--- CRITICAL FIX: Allows MyBatis to use setters instead of constructor
+@NoArgsConstructor
 @AllArgsConstructor
 public class ProductResponse {
     private Long id;
@@ -42,6 +42,11 @@ public class ProductResponse {
     public static class VariantResponse {
         private UUID variantUuid;
         private BigDecimal price;
+
+        // ✅ ADD THESE TWO FIELDS
+        private BigDecimal discountPercentage;
+        private BigDecimal salePrice;
+
         private Integer stockQuantity;
         private String sku;
         private List<OptionResponse> options;

@@ -13,6 +13,7 @@ public class ProductVariant {
     private String sku;
     private BigDecimal price;
     private int stockQuantity;
+    private BigDecimal discountPercentage;
     private boolean isActive;
     private LocalDateTime createdAt;
 }

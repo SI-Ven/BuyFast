@@ -19,6 +19,9 @@ public class VariantRequest {
     @Min(value = 0, message = "Stock cannot be negative")
     private Integer stockQuantity;
 
+    @DecimalMin(value = "0.00", message = "Discount cannot be negative")
+    private BigDecimal discountPercentage;
+
     @Valid
     @NotNull
     @Size(min = 1, message = "Each variant must have at least one option")
