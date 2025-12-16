@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -22,19 +21,21 @@ public class ProductResponse {
     private String description;
     private String sellerId;
 
-    // Hints for card display
+    // ✅ ADD THESE FIELDS
+    private String categoryName;      // Subcategory Name (e.g. "Smartphones")
+    private String mainCategoryName;  // Main Category Name (e.g. "Electronics")
+    private Double averageRating;     // Average Rating
+    // -------------------
+
     private BigDecimal minPrice;
     private BigDecimal maxPrice;
     private String mainImage;
-
     private Map<String, Set<String>> availableOptions;
-
     private Long categoryId;
-
     private boolean isActive;
-
     private List<VariantResponse> variants;
 
+    // ... (Keep VariantResponse and OptionResponse classes as they are) ...
     @Data
     @Builder
     @NoArgsConstructor
@@ -42,11 +43,8 @@ public class ProductResponse {
     public static class VariantResponse {
         private UUID variantUuid;
         private BigDecimal price;
-
-        // ✅ ADD THESE TWO FIELDS
         private BigDecimal discountPercentage;
         private BigDecimal salePrice;
-
         private Integer stockQuantity;
         private String sku;
         private List<OptionResponse> options;

@@ -4,6 +4,8 @@ import com.example.buyfast.modules.auth.model.Permission;
 import com.example.buyfast.modules.auth.model.Role;
 import com.example.buyfast.modules.auth.repository.PermissionRepo;
 import com.example.buyfast.modules.auth.repository.RoleRepo;
+import com.example.buyfast.modules.product.model.Brand;
+import com.example.buyfast.modules.product.repository.BrandRepo;
 import com.example.buyfast.util.UuidService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
@@ -21,12 +23,14 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final RoleRepo roleRepo;
     private final PermissionRepo permissionRepo; // <-- Inject this
     private final UuidService uuidService;
+    private final BrandRepo brandRepo;
 
     @Override
     public void run(String... args) throws Exception {
         seedRoles();
         seedPermissions();
         assignPermissionsToRoles();
+        seedBrands();
     }
 
     private void seedRoles() {
@@ -113,7 +117,33 @@ public class DatabaseSeeder implements CommandLineRunner {
         });
     }
 
+    private void seedBrands() {
+        List<BrandData> brands = Arrays.asList(
+                new BrandData("Nike", "Leading sports brand"),
+                new BrandData("Adidas", "Sportswear and accessories"),
+                new BrandData("Apple", "Premium electronics"),
+                new BrandData("Samsung", "Electronics and appliances"),
+                new BrandData("Generic", "No specific brand")
+        );
+
+        for (BrandData data : brands) {
+            // Check if brand exists by name to avoid duplicates
+            if (brandRepo.findByName(data.name).isEmpty()) {
+                Brand brand = new Brand();
+                // Generate UUID using Spring Boot service
+                brand.setBrandUuid(uuidService.generateUuid());
+                brand.setBrandName(data.name);
+                brand.setDescription(data.desc);
+                // brand.setLogoUrl("..."); // Optional: Set a default logo URL if you have one
+
+                brandRepo.save(brand);
+                System.out.println("Seeded Brand: " + data.name);
+            }
+        }
+    }
+
     // Helper records
     record RoleData(String name, String scope, String description) {}
     record PermissionData(String name, String group, String desc) {}
+    record BrandData(String name, String desc) {}
 }

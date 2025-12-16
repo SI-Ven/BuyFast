@@ -14,14 +14,17 @@ public class CreateProductRequest {
     @NotBlank(message = "Product name is required")
     private String productName;
 
-    @NotNull(message = "Category UUID is required")
-    private UUID categoryUuid; // Public UUID of the sub-category
+    @NotNull(message = "Category is required")
+    private UUID categoryUuid;
+
+    // Removed @NotNull annotation. Logic is handled in Service.
+    private UUID brandUuid;
+
+    // New field for custom brand input
+    private String newBrandName;
 
     @NotBlank(message = "Description is required")
     private String description;
-
-    // REMOVED: price
-    // REMOVED: stockQuantity
 
     @Valid
     @NotNull

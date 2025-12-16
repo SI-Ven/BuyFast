@@ -42,6 +42,7 @@ public class ProductServiceImpl implements ProductService {
     private final ProductVariantRepo productVariantRepo;
     private final ProductVariantValuesRepo productVariantValuesRepo;
     private final ProductImageRepo productImageRepo;
+    private final BrandRepo brandRepo;
 
     // --- SEARCH & VECTOR SERVICES ---
     private final ProductSearchRepo productSearchRepo;
@@ -56,7 +57,6 @@ public class ProductServiceImpl implements ProductService {
         if (discountPercent == null || discountPercent.compareTo(BigDecimal.ZERO) <= 0) {
             return price;
         }
-        // Formula: Price * (1 - (Discount / 100))
         BigDecimal discountFactor = BigDecimal.ONE.subtract(discountPercent.divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP));
         return price.multiply(discountFactor).setScale(2, java.math.RoundingMode.HALF_UP);
     }
@@ -69,39 +69,49 @@ public class ProductServiceImpl implements ProductService {
     public ProductResponse createProduct(CreateProductRequest request, UserDetails sellerDetails) {
         User seller = (User) sellerDetails;
 
-        // 1. Verify Category
+        // --- 1. BRAND LOGIC ---
+        Brand brand;
+        if (request.getNewBrandName() != null && !request.getNewBrandName().trim().isEmpty()) {
+            brand = new Brand();
+            brand.setBrandUuid(uuidService.generateUuid());
+            brand.setBrandName(request.getNewBrandName());
+            brandRepo.save(brand);
+        } else {
+            if (request.getBrandUuid() == null) {
+                throw new IllegalArgumentException("Brand is required.");
+            }
+            brand = brandRepo.findByUuid(request.getBrandUuid())
+                    .orElseThrow(() -> new IllegalArgumentException("Brand not found"));
+        }
+
+        // --- 2. Verify Category ---
         Category category = categoryRepo.findByCategoryUuid(request.getCategoryUuid())
                 .orElseThrow(() -> new IllegalArgumentException("Category not found"));
 
-        // 2. Save Parent Product
+        // --- 3. Save Parent Product ---
         Product product = new Product();
         product.setProductUuid(uuidService.generateUuid());
         product.setProductName(request.getProductName());
         product.setSellerId(seller.getId());
         product.setCompanyId(seller.getCompanyId());
         product.setCategoryId(category.getId());
+        product.setBrandId(brand.getId());
         product.setDescription(request.getDescription());
         product.setActive(true);
         productRepo.insert(product);
 
-        // --- PREPARE VARIABLES FOR RESPONSE & HINTS ---
         List<ProductResponse.VariantResponse> variantResponses = new ArrayList<>();
         boolean mainImageSet = false;
-
         BigDecimal minPrice = null;
         BigDecimal maxPrice = null;
         Map<String, Set<String>> optionsSummary = new HashMap<>();
-        // ----------------------------------------------
 
-        // 3. Process Variants
+        // --- 4. Process Variants ---
         for (VariantRequest variantReq : request.getVariants()) {
-
-            // --- Price Calculation with Discount ---
             BigDecimal discount = variantReq.getDiscountPercentage() != null ? variantReq.getDiscountPercentage() : BigDecimal.ZERO;
             BigDecimal originalPrice = variantReq.getPrice();
             BigDecimal effectivePrice = calculateSalePrice(originalPrice, discount);
 
-            // Update Min/Max using the Effective (Sale) Price
             if (minPrice == null || effectivePrice.compareTo(minPrice) < 0) minPrice = effectivePrice;
             if (maxPrice == null || effectivePrice.compareTo(maxPrice) > 0) maxPrice = effectivePrice;
 
@@ -110,7 +120,7 @@ public class ProductServiceImpl implements ProductService {
             variant.setProductId(product.getId());
             variant.setPrice(originalPrice);
             variant.setStockQuantity(variantReq.getStockQuantity());
-            variant.setDiscountPercentage(discount); // ✅ Save Discount
+            variant.setDiscountPercentage(discount);
             variant.setActive(true);
 
             String sku = request.getProductName().substring(0, Math.min(3, request.getProductName().length())).toUpperCase()
@@ -121,7 +131,6 @@ public class ProductServiceImpl implements ProductService {
 
             List<ProductResponse.OptionResponse> optionResponses = new ArrayList<>();
 
-            // 4. Process Options
             for (OptionValueRequest optionReq : variantReq.getOptions()) {
                 optionsSummary.computeIfAbsent(optionReq.getOptionName(), k -> new HashSet<>())
                         .add(optionReq.getValueName());
@@ -148,7 +157,6 @@ public class ProductServiceImpl implements ProductService {
 
                 productVariantValuesRepo.insert(variant.getId(), value.getId());
 
-                // Save Images
                 List<String> savedImageUrls = new ArrayList<>();
                 if (optionReq.getImgUrls() != null) {
                     for (String url : optionReq.getImgUrls()) {
@@ -160,7 +168,6 @@ public class ProductServiceImpl implements ProductService {
                             image.setOptionValueId(value.getId());
                             image.setVariantId(variant.getId());
 
-                            // Ensure logic for main image
                             if (!mainImageSet) {
                                 image.setIsMain(true);
                                 mainImageSet = true;
@@ -184,16 +191,15 @@ public class ProductServiceImpl implements ProductService {
             variantResponses.add(ProductResponse.VariantResponse.builder()
                     .variantUuid(variant.getVariantUuid())
                     .price(variant.getPrice())
-                    .discountPercentage(variant.getDiscountPercentage()) // ✅ Return Discount
-                    .salePrice(effectivePrice) // ✅ Return Sale Price
+                    .discountPercentage(variant.getDiscountPercentage())
+                    .salePrice(effectivePrice)
                     .stockQuantity(variant.getStockQuantity())
                     .sku(variant.getSku())
                     .options(optionResponses)
                     .build());
         }
 
-        // --- SYNC TO ELASTICSEARCH ---
-        // This MUST be called after images are inserted into DB
+        // --- DYNAMIC SYNC: Index ALL images for better Visual Search UX ---
         saveToElasticsearch(product, category, minPrice);
 
         return ProductResponse.builder()
@@ -214,19 +220,16 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public ProductResponse getMyProduct(UUID productUuid, UserDetails sellerDetails) {
         User seller = (User) sellerDetails;
-
         Product product = productRepo.findByUuidAndSellerId(productUuid, seller.getId())
                 .orElseThrow(() -> new IllegalStateException("Product not found"));
 
         List<ProductVariant> variants = productVariantRepo.findAllByProductId(product.getId());
-
         BigDecimal minPrice = null;
         BigDecimal maxPrice = null;
         Map<String, Set<String>> optionsSummary = new HashMap<>();
         List<ProductResponse.VariantResponse> variantResponses = new ArrayList<>();
 
         for (ProductVariant variant : variants) {
-            // ✅ Calculate Effective Price for display
             BigDecimal effectivePrice = calculateSalePrice(variant.getPrice(), variant.getDiscountPercentage());
 
             if (minPrice == null || effectivePrice.compareTo(minPrice) < 0) minPrice = effectivePrice;
@@ -252,8 +255,8 @@ public class ProductServiceImpl implements ProductService {
             variantResponses.add(ProductResponse.VariantResponse.builder()
                     .variantUuid(variant.getVariantUuid())
                     .price(variant.getPrice())
-                    .discountPercentage(variant.getDiscountPercentage()) // ✅ Include Discount
-                    .salePrice(effectivePrice) // ✅ Include Sale Price
+                    .discountPercentage(variant.getDiscountPercentage())
+                    .salePrice(effectivePrice)
                     .stockQuantity(variant.getStockQuantity())
                     .sku(variant.getSku())
                     .options(optionResponses)
@@ -275,9 +278,6 @@ public class ProductServiceImpl implements ProductService {
                 .build();
     }
 
-    // =================================================================
-    // 2. UPDATE PRODUCT (With Discount Support)
-    // =================================================================
     @Override
     @Transactional
     public ProductResponse updateProduct(UUID productUuid, UpdateProductRequest request, UserDetails sellerDetails) {
@@ -306,13 +306,13 @@ public class ProductServiceImpl implements ProductService {
 
         Category category = categoryRepo.findById(product.getCategoryId()).orElse(new Category());
 
-        // ✅ Fix MinPrice Logic to use Sale Price
         List<ProductVariant> currentVariants = productVariantRepo.findAllByProductId(product.getId());
         BigDecimal minPrice = currentVariants.stream()
                 .map(v -> calculateSalePrice(v.getPrice(), v.getDiscountPercentage()))
                 .min(Comparator.naturalOrder())
                 .orElse(BigDecimal.ZERO);
 
+        // SYNC UPDATED PRICE TO HOME PAGE INDEX
         saveToElasticsearch(product, category, minPrice);
 
         return getMyProduct(productUuid, sellerDetails);
@@ -320,18 +320,14 @@ public class ProductServiceImpl implements ProductService {
 
     private void processVariants(Product product, List<VariantRequest> variants) {
         boolean mainImageSet = false;
-
         for (VariantRequest variantReq : variants) {
             ProductVariant variant = new ProductVariant();
             variant.setVariantUuid(uuidService.generateUuid());
             variant.setProductId(product.getId());
             variant.setPrice(variantReq.getPrice());
             variant.setStockQuantity(variantReq.getStockQuantity());
-
-            // ✅ Set Discount Logic
             BigDecimal discount = variantReq.getDiscountPercentage() != null ? variantReq.getDiscountPercentage() : BigDecimal.ZERO;
             variant.setDiscountPercentage(discount);
-
             variant.setActive(true);
 
             String sku = product.getProductName().substring(0, Math.min(3, product.getProductName().length())).toUpperCase()
@@ -379,7 +375,6 @@ public class ProductServiceImpl implements ProductService {
                             } else {
                                 image.setIsMain(false);
                             }
-
                             productImageRepo.insert(image);
                         }
                     }
@@ -393,14 +388,13 @@ public class ProductServiceImpl implements ProductService {
     public void deleteProduct(UUID productUuid, UserDetails sellerDetails) {
         User seller = (User) sellerDetails;
         Product product = productRepo.findByUuidAndSellerId(productUuid, seller.getId())
-                .orElseThrow(() -> new IllegalStateException("Product not found or permission denied."));
+                .orElseThrow(() -> new IllegalStateException("Product not found"));
 
         productRepo.deleteByUuidAndSellerId(product.getProductUuid(), seller.getId());
-
         try {
             productSearchRepo.deleteById(product.getId());
         } catch (Exception e) {
-            log.error("Warning: Failed to delete product from Elasticsearch: {}", e.getMessage());
+            log.error("Failed to delete from Elasticsearch: {}", e.getMessage());
         }
     }
 
@@ -411,75 +405,90 @@ public class ProductServiceImpl implements ProductService {
         return productRepo.findAllActiveProductsSummary(size, offset);
     }
 
-    // =================================================================
-    // 4. SEARCH METHODS
-    // =================================================================
     @Override
-    public List<ProductDocument> searchProducts(String keyword) {
-        return productSearchRepo.findByProductNameContaining(keyword);
-    }
+    public List<ProductResponse> searchProducts(String keyword) {
+        // 1. Search in Elasticsearch to get IDs (Fast)
+        List<ProductDocument> docs = productSearchRepo.findByProductNameContaining(keyword);
 
-    @Override
-    public List<ProductDocument> searchProductsByImage(MultipartFile image) {
-        List<Double> searchVector = vectorEmbeddingService.getVectorFromFile(image);
-
-        if (searchVector == null || searchVector.isEmpty()) {
+        if (docs.isEmpty()) {
             return Collections.emptyList();
         }
 
-        String script = "cosineSimilarity(params.query_vector, 'imageVector') + 1.0";
-        String querySource = "{" +
-                "  \"script_score\": {" +
-                "    \"query\": {\"match_all\": {}}," +
-                "    \"script\": {" +
-                "      \"source\": \"" + script + "\"," +
-                "      \"params\": {" +
-                "        \"query_vector\": " + searchVector.toString() +
-                "      }" +
-                "    }" +
-                "  }" +
-                "}";
+        // 2. Extract only the IDs
+        List<Long> ids = docs.stream()
+                .map(ProductDocument::getId)
+                .collect(Collectors.toList());
+
+        // 3. Fetch the "Whole Cart/Card" details from PostgreSQL (Clean)
+        // This uses your existing MyBatis query that joins images and ratings
+        return productRepo.findAllSummaryByIds(ids);
+    }
+
+    @Override
+    public List<ProductResponse> searchProductsByImage(MultipartFile image) {
+        List<Double> searchVector = vectorEmbeddingService.getVectorFromFile(image);
+        if (searchVector == null || searchVector.isEmpty()) return Collections.emptyList();
+
+        String script = "if (doc['imageVector'].size() == 0) { return 0; } return cosineSimilarity(params.query_vector, 'imageVector') + 1.0;";
+        String querySource = "{\"script_score\": {\"query\": {\"match_all\": {}}, \"script\": {\"source\": \"" + script + "\", \"params\": {\"query_vector\": " + searchVector + "}}}}";
 
         StringQuery query = new StringQuery(querySource);
         query.setPageable(PageRequest.of(0, 10));
 
         SearchHits<ProductDocument> hits = elasticsearchOperations.search(query, ProductDocument.class);
-        return hits.stream().map(SearchHit::getContent).collect(Collectors.toList());
+        if (hits.isEmpty()) return Collections.emptyList();
+
+        List<ProductResponse> responses = new ArrayList<>();
+        for (SearchHit<ProductDocument> hit : hits) {
+            ProductDocument doc = hit.getContent();
+
+            // Logic: Your ProductDocument.id is now "productId_imageId"
+            String originalIdStr = doc.getId().split("_")[0];
+            Long productId = Long.parseLong(originalIdStr);
+
+            ProductResponse res = productRepo.findSummaryById(productId);
+            if (res != null) {
+                // UX FIX: Overwrite the main image with the specific one that matched the search!
+                res.setMainImage(doc.getImageUrl());
+                responses.add(res);
+            }
+        }
+        return responses;
+    }
+    @Override
+    public List<Brand> findAllBrand() {
+        return brandRepo.findAll();
     }
 
-    // --- HELPER TO SYNC DATA ---
+    // --- HELPER TO SYNC DATA: Fixed to index EVERY product image ---
     private void saveToElasticsearch(Product product, Category category, BigDecimal minPrice) {
         try {
-            ProductDocument doc = new ProductDocument();
-            doc.setId(product.getId());
-            doc.setProductName(product.getProductName());
-            doc.setDescription(product.getDescription());
-            doc.setCategoryName(category.getCategoryName());
-            doc.setMinPrice(minPrice != null ? minPrice.doubleValue() : 0.0);
+            // 1. Delete old entries for this product (to prevent duplicates when updating)
+            // You should add deleteByProductId to your ProductSearchRepo
+            productSearchRepo.deleteByProductId(product.getId());
 
-            // Fetch Main Image
-            Optional<ProductImage> mainImageOpt = productImageRepo.findFirstByProductIdAndIsMainTrue(product.getId());
+            // 2. Fetch all images for this product
+            List<ProductImage> allImages = productImageRepo.findAllByProductId(product.getId());
 
-            if (mainImageOpt.isPresent()) {
-                String imageUrl = mainImageOpt.get().getImageUrl();
-                log.info("Found main image for vectorization: {}", imageUrl); // Debug Log
+            for (ProductImage img : allImages) {
+                ProductDocument doc = new ProductDocument();
+                // Composite ID: allows one product to have many searchable images
+                doc.setId(product.getId() + "_" + img.getId());
+                doc.setProductId(product.getId());
+                doc.setProductName(product.getProductName());
+                doc.setDescription(product.getDescription());
+                doc.setCategoryName(category.getCategoryName());
+                doc.setMinPrice(minPrice != null ? minPrice.doubleValue() : 0.0);
+                doc.setImageUrl(img.getImageUrl()); // Store specific image URL
 
-                List<Double> vector = vectorEmbeddingService.getVectorFromUrl(imageUrl);
-
+                List<Double> vector = vectorEmbeddingService.getVectorFromUrl(img.getImageUrl());
                 if (vector != null && !vector.isEmpty()) {
                     doc.setImageVector(vector);
-                    log.info("Vector generated successfully for Product ID: {}", product.getId());
-                } else {
-                    log.warn("Vector service returned NULL/Empty for Product ID: {}", product.getId());
+                    productSearchRepo.save(doc);
                 }
-            } else {
-                log.warn("No main image found for Product ID: {} - Skipping vectorization", product.getId());
             }
-
-            productSearchRepo.save(doc);
-
         } catch (Exception e) {
-            log.error("Error syncing product to Elasticsearch: ", e);
+            log.error("Error syncing to Elasticsearch: ", e);
         }
     }
 }

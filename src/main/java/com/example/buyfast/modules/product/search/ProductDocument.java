@@ -1,5 +1,6 @@
 package com.example.buyfast.modules.product.search;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
@@ -13,7 +14,10 @@ import java.util.List;
 public class ProductDocument {
 
     @Id
-    private Long id;
+    private String id; // Changed to String to support composite IDs (productId_imageId)
+
+    @Field(type = FieldType.Long)
+    private Long productId; // Add this to keep track of which product the image belongs to
 
     @Field(type = FieldType.Text, analyzer = "standard")
     private String productName;
@@ -27,8 +31,10 @@ public class ProductDocument {
     @Field(type = FieldType.Double)
     private Double minPrice;
 
-    // --- NEW VECTOR FIELD ---
-    // dims=512 is standard for CLIP models. Adjust if your model is different.
+    @Field(type = FieldType.Keyword)
+    private String imageUrl; // Store the specific URL for this vector
+
+    @JsonIgnore
     @Field(type = FieldType.Dense_Vector, dims = 512, index = true)
     private List<Double> imageVector;
 }

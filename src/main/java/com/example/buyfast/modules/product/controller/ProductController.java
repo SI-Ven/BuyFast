@@ -4,6 +4,7 @@ import com.example.buyfast.common.ApiResponse;
 import com.example.buyfast.modules.product.dto.CreateProductRequest;
 import com.example.buyfast.modules.product.dto.ProductResponse;
 import com.example.buyfast.modules.product.dto.UpdateProductRequest;
+import com.example.buyfast.modules.product.model.Brand;
 import com.example.buyfast.modules.product.model.Product;
 import com.example.buyfast.modules.product.search.ProductDocument;
 import com.example.buyfast.modules.product.service.ProductService;
@@ -88,19 +89,25 @@ public class ProductController {
 
     @GetMapping("/search")
     @Operation(summary = "Search products like Alibaba (Elasticsearch)")
-    public ResponseEntity<ApiResponse<List<ProductDocument>>> searchProducts(
+    public ResponseEntity<ApiResponse<List<ProductResponse>>> searchProducts(
             @RequestParam String keyword) {
 
-        List<ProductDocument> results = productService.searchProducts(keyword);
+        List<ProductResponse> results = productService.searchProducts(keyword);
         return ResponseEntity.ok(ApiResponse.success("Search results found", results));
     }
 
     @PostMapping(value = "/search/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Search products by Image (Vector Search)")
-    public ResponseEntity<ApiResponse<List<ProductDocument>>> searchProductsByImage(
+    public ResponseEntity<ApiResponse<List<ProductResponse>>> searchProductsByImage(
             @RequestParam("image") MultipartFile image) {
 
-        List<ProductDocument> results = productService.searchProductsByImage(image);
+        List<ProductResponse> results = productService.searchProductsByImage(image);
         return ResponseEntity.ok(ApiResponse.success("Image search results found", results));
+    }
+
+    @GetMapping("/all-brand")
+    public ResponseEntity<ApiResponse<List<Brand>>> getAllBrands() {
+        List<Brand> brand = productService.findAllBrand();
+        return ResponseEntity.ok(ApiResponse.success("find all brands successfully",brand));
     }
 }
