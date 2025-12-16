@@ -97,10 +97,10 @@ public class ProductController {
 
     @PostMapping(value = "/search/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Search products by Image (Vector Search)")
-    public ResponseEntity<ApiResponse<List<ProductDocument>>> searchProductsByImage(
+    public ResponseEntity<ApiResponse<List<ProductResponse>>> searchProductsByImage(
             @RequestParam("image") MultipartFile image) {
 
-        List<ProductDocument> results = productService.searchProductsByImage(image);
+        List<ProductResponse> results = productService.searchProductsByImage(image);
         return ResponseEntity.ok(ApiResponse.success("Image search results found", results));
     }
 }

@@ -82,8 +82,8 @@ CREATE TABLE users (
                            ON DELETE SET NULL
 );
 
-truncate table product_variant,product_option,product_option_value,product_variant_values restart identity cascade ;
-drop table product_variant cascade ;
+truncate table product_variant,product_option,product_option_value,product_variant_values,product,product_image restart identity cascade ;
+drop table product cascade ;
 
 CREATE TABLE user_profile (
                               id BIGSERIAL PRIMARY KEY,
@@ -207,14 +207,32 @@ CREATE TABLE product (
                          company_id BIGINT, -- Stays nullable
                          seller_id BIGINT NOT NULL,
                          category_id BIGINT NOT NULL,
+                         brand_id BIGINT NOT NULL ,
                          description TEXT NOT NULL,
                          is_active BOOLEAN DEFAULT TRUE,
                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    -- REMOVED: price DECIMAL(10,2) NOT NULL,
-    -- REMOVED: stock_quantity INT NOT NULL,
                          CONSTRAINT fk_product_company FOREIGN KEY (company_id) REFERENCES company(id),
                          CONSTRAINT fk_product_seller FOREIGN KEY (seller_id) REFERENCES users(id) ON DELETE CASCADE,
-                         CONSTRAINT fk_product_category FOREIGN KEY (category_id) REFERENCES category(id)
+                         CONSTRAINT fk_product_category FOREIGN KEY (category_id) REFERENCES category(id),
+                         CONSTRAINT fk_product_brand
+                             FOREIGN KEY (brand_id) REFERENCES brand(id) ON DELETE SET NULL
+);
+
+CREATE TABLE brand (
+                       id BIGSERIAL PRIMARY KEY,
+                       brand_uuid UUID NOT NULL UNIQUE,
+                       brand_name VARCHAR(100) NOT NULL UNIQUE, -- e.g. "Nike", "Apple"
+                       logo_url VARCHAR(512),
+                       description TEXT,
+                       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE category_brand (
+                                category_id BIGINT NOT NULL,
+                                brand_id BIGINT NOT NULL,
+                                PRIMARY KEY (category_id, brand_id),
+                                CONSTRAINT fk_cb_category FOREIGN KEY (category_id) REFERENCES category(id) ON DELETE CASCADE,
+                                CONSTRAINT fk_cb_brand FOREIGN KEY (brand_id) REFERENCES brand(id) ON DELETE CASCADE
 );
 drop table orders cascade ;
 -- =======================================================

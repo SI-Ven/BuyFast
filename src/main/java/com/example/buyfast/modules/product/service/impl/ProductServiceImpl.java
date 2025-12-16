@@ -42,6 +42,7 @@ public class ProductServiceImpl implements ProductService {
     private final ProductVariantRepo productVariantRepo;
     private final ProductVariantValuesRepo productVariantValuesRepo;
     private final ProductImageRepo productImageRepo;
+    private final BrandRepo brandRepo;
 
     // --- SEARCH & VECTOR SERVICES ---
     private final ProductSearchRepo productSearchRepo;
@@ -69,6 +70,9 @@ public class ProductServiceImpl implements ProductService {
     public ProductResponse createProduct(CreateProductRequest request, UserDetails sellerDetails) {
         User seller = (User) sellerDetails;
 
+        Brand brand = brandRepo.findByUuid(request.getBrandUuid())
+                .orElseThrow(() -> new IllegalArgumentException("Brand not found"));
+
         // 1. Verify Category
         Category category = categoryRepo.findByCategoryUuid(request.getCategoryUuid())
                 .orElseThrow(() -> new IllegalArgumentException("Category not found"));
@@ -80,6 +84,7 @@ public class ProductServiceImpl implements ProductService {
         product.setSellerId(seller.getId());
         product.setCompanyId(seller.getCompanyId());
         product.setCategoryId(category.getId());
+        product.setBrandId(brand.getId());
         product.setDescription(request.getDescription());
         product.setActive(true);
         productRepo.insert(product);
@@ -419,15 +424,21 @@ public class ProductServiceImpl implements ProductService {
         return productSearchRepo.findByProductNameContaining(keyword);
     }
 
+    // ... imports remain the same
+
     @Override
-    public List<ProductDocument> searchProductsByImage(MultipartFile image) {
+    public List<ProductResponse> searchProductsByImage(MultipartFile image) {
+        // 1. Get vector from Python/FastAPI
         List<Double> searchVector = vectorEmbeddingService.getVectorFromFile(image);
 
         if (searchVector == null || searchVector.isEmpty()) {
             return Collections.emptyList();
         }
 
-        String script = "cosineSimilarity(params.query_vector, 'imageVector') + 1.0";
+        // 2. Safe Script to prevent crash if imageVector is null
+        String script = "if (doc['imageVector'].size() == 0) { return 0; } " +
+                "return cosineSimilarity(params.query_vector, 'imageVector') + 1.0;";
+
         String querySource = "{" +
                 "  \"script_score\": {" +
                 "    \"query\": {\"match_all\": {}}," +
@@ -441,10 +452,28 @@ public class ProductServiceImpl implements ProductService {
                 "}";
 
         StringQuery query = new StringQuery(querySource);
-        query.setPageable(PageRequest.of(0, 10));
+        query.setPageable(PageRequest.of(0, 10)); // Get top 10 matches
 
+        // 3. Execute Search
         SearchHits<ProductDocument> hits = elasticsearchOperations.search(query, ProductDocument.class);
-        return hits.stream().map(SearchHit::getContent).collect(Collectors.toList());
+
+        if (hits.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 4. Extract IDs
+        List<Long> productIds = hits.stream()
+                .map(hit -> hit.getContent().getId())
+                .collect(Collectors.toList());
+
+        // 5. Fetch Full "Card Details" from Database (PostgreSQL)
+        // This returns the structure you want (ProductResponse)
+        List<ProductResponse> responses = productRepo.findAllSummaryByIds(productIds);
+
+        // Optional: Re-sort responses to match the order of 'productIds' (relevance)
+        // ... (sorting logic is optional, usually not strictly required for MVP)
+
+        return responses;
     }
 
     // --- HELPER TO SYNC DATA ---
