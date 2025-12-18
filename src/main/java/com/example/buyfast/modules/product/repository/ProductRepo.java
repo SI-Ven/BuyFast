@@ -44,14 +44,11 @@ public interface ProductRepo {
     void update(Product product);
 
     // --- Fetch Subcategory (Category) and Main Category ---
-    @Select("SELECT " +
-            "p.id, p.product_uuid, p.product_name, p.description, p.category_id, p.is_active, " +
-            "u.email as seller_email, " +
-            "c.category_name as categoryName, " +
-            "mc.main_category_name as mainCategoryName, " +
-            "COALESCE(AVG(r.rating), 0) as averageRating, " +
-            "MIN(pv.price) as minPrice, " +
-            "MAX(pv.price) as maxPrice, " +
+    // src/main/java/com/example/buyfast/modules/product/repository/ProductRepo.java
+
+    @Select("SELECT p.id, p.product_uuid, p.product_name, p.description, p.category_id, p.is_active, " +
+            "u.email as seller_email, c.category_name as categoryName, mc.main_category_name as mainCategoryName, " +
+            "COALESCE(AVG(r.rating), 0) as averageRating, MIN(pv.price) as minPrice, MAX(pv.price) as maxPrice, " +
             "(SELECT pi.image_url FROM product_image pi WHERE pi.product_id = p.id AND pi.is_main = true LIMIT 1) as mainImage " +
             "FROM product p " +
             "LEFT JOIN product_variant pv ON p.id = pv.product_id " +
@@ -60,21 +57,16 @@ public interface ProductRepo {
             "LEFT JOIN main_category mc ON c.main_category_id = mc.id " +
             "LEFT JOIN review r ON p.id = r.product_id " +
             "WHERE p.is_active = true " +
-            "GROUP BY p.id, p.product_uuid, p.product_name, p.description, p.category_id, p.is_active, p.created_at, u.email, c.category_name, mc.main_category_name " +
-            "ORDER BY p.created_at DESC " +
-            "LIMIT #{limit} OFFSET #{offset}")
+            "GROUP BY p.id, u.email, c.category_name, mc.main_category_name " +
+            "ORDER BY p.created_at DESC LIMIT #{limit} OFFSET #{offset}")
     @Results({
             @Result(property = "id", column = "id"),
             @Result(property = "productUuid", column = "product_uuid"),
             @Result(property = "productName", column = "product_name"),
-            @Result(property = "categoryId", column = "category_id"),
-            @Result(property = "categoryName", column = "categoryName"),
-            @Result(property = "mainCategoryName", column = "mainCategoryName"),
-            @Result(property = "averageRating", column = "averageRating"),
             @Result(property = "minPrice", column = "minPrice"),
             @Result(property = "maxPrice", column = "maxPrice"),
             @Result(property = "mainImage", column = "mainImage"),
-            @Result(property = "sellerId", column = "seller_email")
+            // Add mapping for variants if needed by the frontend carousel
     })
     List<ProductResponse> findAllActiveProductsSummary(@Param("limit") int limit, @Param("offset") int offset);
 

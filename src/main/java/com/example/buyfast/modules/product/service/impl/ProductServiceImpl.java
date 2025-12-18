@@ -66,11 +66,13 @@ public class ProductServiceImpl implements ProductService {
     // HELPER: Calculate Sale Price
     // =================================================================
     private BigDecimal calculateSalePrice(BigDecimal price, BigDecimal discountPercent) {
-        if (price == null) return BigDecimal.ZERO;
+        if (price == null) return BigDecimal.ZERO; // Fix: Ensure price is never null
         if (discountPercent == null || discountPercent.compareTo(BigDecimal.ZERO) <= 0) {
             return price;
         }
-        BigDecimal discountFactor = BigDecimal.ONE.subtract(discountPercent.divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP));
+        BigDecimal discountFactor = BigDecimal.ONE.subtract(
+                discountPercent.divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP)
+        );
         return price.multiply(discountFactor).setScale(2, java.math.RoundingMode.HALF_UP);
     }
 
@@ -447,11 +449,26 @@ public class ProductServiceImpl implements ProductService {
         }
     }
 
+    // In ProductServiceImpl.java - getAllProductsForHome
     @Override
     public List<ProductResponse> getAllProductsForHome(int page, int size) {
-        if (page < 1) page = 1;
         int offset = (page - 1) * size;
-        return productRepo.findAllActiveProductsSummary(size, offset);
+        List<ProductResponse> products = productRepo.findAllActiveProductsSummary(size, offset);
+
+        // Manual Fix: Populate first variant for each product so the carousel doesn't crash
+        for (ProductResponse p : products) {
+            List<ProductVariant> variants = productVariantRepo.findAllByProductId(p.getId());
+            if (!variants.isEmpty()) {
+                p.setVariants(variants.stream().map(v ->
+                        ProductResponse.VariantResponse.builder()
+                                .price(v.getPrice())
+                                .discountPercentage(v.getDiscountPercentage())
+                                .stockQuantity(v.getStockQuantity())
+                                .build()
+                ).collect(Collectors.toList()));
+            }
+        }
+        return products;
     }
 
     @Override
@@ -514,7 +531,6 @@ public class ProductServiceImpl implements ProductService {
         return brandRepo.findAll();
     }
 
-    // In ProductServiceImpl.java
     @Override
     public ProductResponse getProductDetailsPublic(UUID productUuid) {
         // 1. Fetch the product and ensure it is active
@@ -526,7 +542,6 @@ public class ProductServiceImpl implements ProductService {
         Category subCategory = categoryRepo.findById(product.getCategoryId()).orElse(null);
         String mainCatName = "Uncategorized";
         if (subCategory != null && subCategory.getMainCategoryId() != null) {
-            // Fetch real name from DB instead of hardcoded "General"
             mainCatName = categoryRepo.findMainCategoryNameById(subCategory.getMainCategoryId());
         }
 
@@ -534,10 +549,53 @@ public class ProductServiceImpl implements ProductService {
         Brand brand = brandRepo.findById(product.getBrandId()).orElse(null);
         User sellerUser = userRepo.findById(product.getSellerId()).orElse(null);
 
-        // 4. Process Variants, Prices, and Options (Reuse your existing logic here)
-        // ... [Iterate through variants and options as you did in getMyProduct] ...
+        // 4. Declare variables for variants, prices, and options summary
+        List<ProductVariant> variants = productVariantRepo.findAllByProductId(product.getId());
+        BigDecimal minPrice = null;
+        BigDecimal maxPrice = null;
+        String firstImage = null;
+        Map<String, Set<String>> optionsSummary = new HashMap<>();
+        List<ProductResponse.VariantResponse> variantResponses = new ArrayList<>();
 
-        // 5. Build the Response with No Nulls
+        // 5. Process Variants, Prices, and Options (Crucial logic to fix the "symbol not found" errors)
+        for (ProductVariant variant : variants) {
+            BigDecimal effectivePrice = calculateSalePrice(variant.getPrice(), variant.getDiscountPercentage());
+
+            if (minPrice == null || effectivePrice.compareTo(minPrice) < 0) minPrice = effectivePrice;
+            if (maxPrice == null || effectivePrice.compareTo(maxPrice) > 0) maxPrice = effectivePrice;
+
+            List<ProductOptionValue> values = productVariantValuesRepo.findValuesByVariantId(variant.getId());
+            List<ProductResponse.OptionResponse> optionResponses = new ArrayList<>();
+
+            for (ProductOptionValue val : values) {
+                ProductOption option = productOptionRepo.findById(val.getOptionId());
+                List<ProductImage> images = productImageRepo.findAllByOptionValueId(val.getId());
+                List<String> imageUrls = images.stream().map(ProductImage::getImageUrl).collect(Collectors.toList());
+
+                // Pick the first available image as the main hero image
+                if (firstImage == null && !imageUrls.isEmpty()) firstImage = imageUrls.get(0);
+
+                optionsSummary.computeIfAbsent(option.getOptionName(), k -> new HashSet<>()).add(val.getValueName());
+
+                optionResponses.add(ProductResponse.OptionResponse.builder()
+                        .optionName(option.getOptionName())
+                        .valueName(val.getValueName())
+                        .images(imageUrls)
+                        .build());
+            }
+
+            variantResponses.add(ProductResponse.VariantResponse.builder()
+                    .variantUuid(variant.getVariantUuid())
+                    .price(variant.getPrice())
+                    .discountPercentage(variant.getDiscountPercentage())
+                    .salePrice(effectivePrice)
+                    .stockQuantity(variant.getStockQuantity())
+                    .sku(variant.getSku())
+                    .options(optionResponses)
+                    .build());
+        }
+
+        // 6. Build the Response with No Nulls
         return ProductResponse.builder()
                 .id(product.getId())
                 .productUuid(product.getProductUuid())
@@ -597,4 +655,5 @@ public class ProductServiceImpl implements ProductService {
             log.error("❌ Background Sync Error for Product {}: ", product.getId(), e);
         }
     }
+
 }
