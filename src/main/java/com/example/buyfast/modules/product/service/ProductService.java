@@ -4,7 +4,7 @@ import com.example.buyfast.modules.product.dto.CreateProductRequest;
 // import com.example.buyfast.modules.product.dto.UpdateProductRequest;
 import com.example.buyfast.modules.product.dto.ProductResponse;
 import com.example.buyfast.modules.product.dto.UpdateProductRequest;
-import com.example.buyfast.modules.product.search.ProductDocument;
+import com.example.buyfast.modules.product.model.Brand;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -30,9 +30,11 @@ public interface ProductService {
     ProductResponse getMyProduct(UUID productUuid, UserDetails sellerDetails);
     List<ProductResponse> getAllProductsForHome(int page, int size);
 
-    List<ProductDocument> searchProducts(String keyword);
+    List<ProductResponse> searchProducts(String keyword);
 
     List<ProductResponse> searchProductsByImage(MultipartFile image);
+
+    List<Brand> findAllBrand();
 
     // We will skip UpdateProduct for now as it's very complex
     // Product updateProduct(UUID productUuid, UpdateProductRequest request, UserDetails sellerDetails);
