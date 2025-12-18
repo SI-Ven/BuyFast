@@ -109,5 +109,15 @@ public class ProductController {
         return ResponseEntity.ok(ApiResponse.success("find all brands successfully",brand));
     }
 
+    @GetMapping("/public/{productUuid}")
+    @Operation(summary = "Get public product details for customers")
+    public ResponseEntity<ApiResponse<ProductResponse>> getProductDetails(
+            @PathVariable UUID productUuid) {
+
+        // Call a new service method dedicated to public access
+        ProductResponse response = productService.getProductDetailsPublic(productUuid);
+        return ResponseEntity.ok(ApiResponse.success("Product retrieved.", response));
+    }
+
 
 }

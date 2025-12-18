@@ -48,4 +48,7 @@ public interface CategoryRepo {
 
     @Select("SELECT * FROM category ORDER BY category_name")
     List<Category> findAllSubCategories();
+
+    @Select("SELECT main_category_name FROM main_category WHERE id = #{id}")
+    String findMainCategoryNameById(Long id);
 }

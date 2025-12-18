@@ -39,6 +39,8 @@ public interface ProductService {
     void saveToElasticsearch(Product product, Category category, BigDecimal minPrice);
     List<Brand> findAllBrand();
 
+    ProductResponse getProductDetailsPublic(UUID productUuid);
+
     // We will skip UpdateProduct for now as it's very complex
     // Product updateProduct(UUID productUuid, UpdateProductRequest request, UserDetails sellerDetails);
 }

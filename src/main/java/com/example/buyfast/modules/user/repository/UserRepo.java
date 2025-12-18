@@ -104,4 +104,16 @@ public interface UserRepo {
                     one = @One(select = "com.example.buyfast.modules.user.repository.UserProfileRepo.findByUserId"))
     })
     List<User> findAllUsers();
+
+    @Select("SELECT * FROM users WHERE id = #{id}")
+    @Results({
+            @Result(property = "id", column = "id"),
+            @Result(property = "userUuid", column = "user_uuid", typeHandler = UuidTypeHandler.class),
+            @Result(property = "roles", column = "id",
+                    many = @Many(select = "com.example.buyfast.modules.auth.repository.RoleRepo.findRolesByUserId")),
+            @Result(property = "userProfile", column = "id",
+                    one = @One(select = "com.example.buyfast.modules.user.repository.UserProfileRepo.findByUserId"))
+    })
+    Optional<User> findById(Long id);
+
 }

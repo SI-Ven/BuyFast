@@ -16,6 +16,9 @@ public interface BrandRepo {
     @Select("SELECT * FROM brand WHERE brand_uuid = #{brandUuid}")
     Optional<Brand> findByUuid(UUID brandUuid);
 
+    @Select("SELECT * FROM brand WHERE id = #{id}")
+    Optional<Brand> findById(Long id); // Add this method
+
     @Select("SELECT * FROM brand")
     List<Brand> findAll();
 

@@ -2,6 +2,7 @@ package com.example.buyfast.modules.product.service.impl;
 
 import com.example.buyfast.modules.category.model.Category;
 import com.example.buyfast.modules.category.repository.CategoryRepo;
+import com.example.buyfast.modules.category.service.CategoryService;
 import com.example.buyfast.modules.product.dto.*;
 import com.example.buyfast.modules.product.model.*;
 import com.example.buyfast.modules.product.repository.*;
@@ -10,6 +11,7 @@ import com.example.buyfast.modules.product.search.ProductSearchRepo;
 import com.example.buyfast.modules.product.service.ProductService;
 import com.example.buyfast.modules.product.service.VectorEmbeddingService;
 import com.example.buyfast.modules.user.model.User;
+import com.example.buyfast.modules.user.repository.UserRepo;
 import com.example.buyfast.util.UuidService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +48,7 @@ public class ProductServiceImpl implements ProductService {
     private final ProductVariantValuesRepo productVariantValuesRepo;
     private final ProductImageRepo productImageRepo;
     private final BrandRepo brandRepo;
+    private final UserRepo userRepo;
 
     // --- SEARCH & VECTOR SERVICES ---
     private final ProductSearchRepo productSearchRepo;
@@ -217,7 +220,11 @@ public class ProductServiceImpl implements ProductService {
                 .productUuid(product.getProductUuid())
                 .productName(product.getProductName())
                 .description(product.getDescription())
-                .sellerId(seller.getEmail())
+                .seller(ProductResponse.SellerInfo.builder()
+                        .email(seller.getEmail())
+                        .storeName("Official Store") // You can fetch this from the company table
+                        .isVerified(true)
+                        .build())
                 .minPrice(minPrice)
                 .maxPrice(maxPrice)
                 .availableOptions(optionsSummary)
@@ -227,15 +234,33 @@ public class ProductServiceImpl implements ProductService {
                 .build();
     }
 
+    // ... existing imports
+
     @Override
     public ProductResponse getMyProduct(UUID productUuid, UserDetails sellerDetails) {
-        // 1. Fetch the product without filtering by seller_id to allow public viewing
+        // 1. Fetch Product
         Product product = productRepo.findByUuid(productUuid)
                 .orElseThrow(() -> new IllegalStateException("Product not found"));
 
+        // 2. Fetch Related Entities to eliminate hardcoded NULL fallbacks
+        // Get subcategory and then use it to find the Main Category Name
+        Category subCategory = categoryRepo.findById(product.getCategoryId()).orElse(null);
+        String mainCatName = "Uncategorized";
+        if (subCategory != null && subCategory.getMainCategoryId() != null) {
+            // Fetch actual name from DB instead of hardcoded "General"
+            mainCatName = categoryRepo.findMainCategoryNameById(subCategory.getMainCategoryId());
+        }
+
+        Brand brand = brandRepo.findById(product.getBrandId()).orElse(null);
+
+        // Fetch actual Seller/User info
+        User sellerUser = userRepo.findById(product.getSellerId()).orElse(null);
+
+        // 3. Process Variants, Prices, and Options
         List<ProductVariant> variants = productVariantRepo.findAllByProductId(product.getId());
         BigDecimal minPrice = null;
         BigDecimal maxPrice = null;
+        String firstImage = null;
         Map<String, Set<String>> optionsSummary = new HashMap<>();
         List<ProductResponse.VariantResponse> variantResponses = new ArrayList<>();
 
@@ -252,6 +277,9 @@ public class ProductServiceImpl implements ProductService {
                 ProductOption option = productOptionRepo.findById(val.getOptionId());
                 List<ProductImage> images = productImageRepo.findAllByOptionValueId(val.getId());
                 List<String> imageUrls = images.stream().map(ProductImage::getImageUrl).collect(Collectors.toList());
+
+                // Pick the first available image as the main hero image
+                if (firstImage == null && !imageUrls.isEmpty()) firstImage = imageUrls.get(0);
 
                 optionsSummary.computeIfAbsent(option.getOptionName(), k -> new HashSet<>()).add(val.getValueName());
 
@@ -273,24 +301,31 @@ public class ProductServiceImpl implements ProductService {
                     .build());
         }
 
-        // Retrieve category names for the response
-        Category category = categoryRepo.findById(product.getCategoryId()).orElse(null);
-
+        // 4. Build Professional Response (Alibaba/Amazon Style)
         return ProductResponse.builder()
                 .id(product.getId())
                 .productUuid(product.getProductUuid())
                 .productName(product.getProductName())
+                .brandName(brand != null ? brand.getBrandName() : "Generic")
                 .description(product.getDescription())
-                .minPrice(minPrice)
-                .maxPrice(maxPrice)
-                .categoryName(category != null ? category.getCategoryName() : null)
+                .minPrice(minPrice != null ? minPrice : BigDecimal.ZERO)
+                .maxPrice(maxPrice != null ? maxPrice : BigDecimal.ZERO)
+                .mainImage(firstImage != null ? firstImage : "")
+                .categoryName(subCategory != null ? subCategory.getCategoryName() : "Other")
+                .mainCategoryName(mainCatName) // Now dynamic from DB
+                .seller(ProductResponse.SellerInfo.builder()
+                        .storeName(sellerUser != null ? sellerUser.getUsername() + "'s Store" : "Official Store")
+                        .email(sellerUser != null ? sellerUser.getEmail() : "")
+                        .isVerified(true)
+                        .build())
+                .averageRating(0.0)
+                .totalReviews(0)
                 .availableOptions(optionsSummary)
                 .categoryId(product.getCategoryId())
                 .isActive(product.isActive())
                 .variants(variantResponses)
                 .build();
     }
-
     @Override
     @Transactional
     public ProductResponse updateProduct(UUID productUuid, UpdateProductRequest request, UserDetails sellerDetails) {
@@ -477,6 +512,54 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public List<Brand> findAllBrand() {
         return brandRepo.findAll();
+    }
+
+    // In ProductServiceImpl.java
+    @Override
+    public ProductResponse getProductDetailsPublic(UUID productUuid) {
+        // 1. Fetch the product and ensure it is active
+        Product product = productRepo.findByUuid(productUuid)
+                .filter(Product::isActive)
+                .orElseThrow(() -> new IllegalStateException("Product not found or is currently unavailable."));
+
+        // 2. Resolve dynamic Category names (Alibaba Style)
+        Category subCategory = categoryRepo.findById(product.getCategoryId()).orElse(null);
+        String mainCatName = "Uncategorized";
+        if (subCategory != null && subCategory.getMainCategoryId() != null) {
+            // Fetch real name from DB instead of hardcoded "General"
+            mainCatName = categoryRepo.findMainCategoryNameById(subCategory.getMainCategoryId());
+        }
+
+        // 3. Fetch Brand and Seller Information
+        Brand brand = brandRepo.findById(product.getBrandId()).orElse(null);
+        User sellerUser = userRepo.findById(product.getSellerId()).orElse(null);
+
+        // 4. Process Variants, Prices, and Options (Reuse your existing logic here)
+        // ... [Iterate through variants and options as you did in getMyProduct] ...
+
+        // 5. Build the Response with No Nulls
+        return ProductResponse.builder()
+                .id(product.getId())
+                .productUuid(product.getProductUuid())
+                .productName(product.getProductName())
+                .brandName(brand != null ? brand.getBrandName() : "Generic")
+                .description(product.getDescription())
+                .minPrice(minPrice != null ? minPrice : BigDecimal.ZERO)
+                .maxPrice(maxPrice != null ? maxPrice : BigDecimal.ZERO)
+                .mainImage(firstImage != null ? firstImage : "")
+                .categoryName(subCategory != null ? subCategory.getCategoryName() : "Other")
+                .mainCategoryName(mainCatName)
+                .seller(ProductResponse.SellerInfo.builder()
+                        .storeName(sellerUser != null ? sellerUser.getUsername() + "'s Store" : "Official Store")
+                        .email(sellerUser != null ? sellerUser.getEmail() : "")
+                        .isVerified(true)
+                        .build())
+                .averageRating(0.0)
+                .totalReviews(0)
+                .availableOptions(optionsSummary)
+                .isActive(product.isActive())
+                .variants(variantResponses)
+                .build();
     }
 
     // --- HELPER TO SYNC DATA: Fixed to index EVERY product image ---

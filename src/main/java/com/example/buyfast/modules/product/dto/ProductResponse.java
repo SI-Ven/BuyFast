@@ -1,14 +1,8 @@
 package com.example.buyfast.modules.product.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Data
 @Builder
@@ -18,14 +12,19 @@ public class ProductResponse {
     private Long id;
     private UUID productUuid;
     private String productName;
+    private String brandName;
     private String description;
-    private String sellerId;
 
-    // ✅ ADD THESE FIELDS
-    private String categoryName;      // Subcategory Name (e.g. "Smartphones")
-    private String mainCategoryName;  // Main Category Name (e.g. "Electronics")
-    private Double averageRating;     // Average Rating
-    // -------------------
+    // Change sellerId (String) to seller (Object) to match Amazon/Alibaba style
+    private SellerInfo seller;
+
+    private String categoryName;
+    private String mainCategoryName;
+
+    @Builder.Default
+    private Double averageRating = 0.0; // Ensures no null ratings
+    @Builder.Default
+    private Integer totalReviews = 0;
 
     private BigDecimal minPrice;
     private BigDecimal maxPrice;
@@ -35,11 +34,15 @@ public class ProductResponse {
     private boolean isActive;
     private List<VariantResponse> variants;
 
-    // ... (Keep VariantResponse and OptionResponse classes as they are) ...
     @Data
     @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
+    public static class SellerInfo {
+        private String storeName;
+        private String email;
+        private boolean isVerified;
+    }
+    @Data
+    @Builder
     public static class VariantResponse {
         private UUID variantUuid;
         private BigDecimal price;
@@ -52,8 +55,6 @@ public class ProductResponse {
 
     @Data
     @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class OptionResponse {
         private String optionName;
         private String valueName;
