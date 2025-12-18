@@ -115,4 +115,21 @@ public interface ProductRepo {
             @Result(property = "sellerId", column = "seller_email")
     })
     List<ProductResponse> findAllSummaryByIds(@Param("ids") List<Long> ids);
+
+    @Select("SELECT p.id, p.product_uuid, p.product_name, p.description, u.email as seller_email, " +
+            "c.category_name as categoryName, mc.main_category_name as mainCategoryName, " +
+            "COALESCE(AVG(r.rating), 0) as averageRating, MIN(pv.price) as minPrice, MAX(pv.price) as maxPrice " +
+            "FROM product p " +
+            "LEFT JOIN product_variant pv ON p.id = pv.product_id " +
+            "LEFT JOIN users u ON p.seller_id = u.id " +
+            "LEFT JOIN category c ON p.category_id = c.id " +
+            "LEFT JOIN main_category mc ON c.main_category_id = mc.id " +
+            "LEFT JOIN review r ON p.id = r.product_id " +
+            "WHERE p.id = #{productId} " +
+            "GROUP BY p.id, u.email, c.category_name, mc.main_category_name")
+    ProductResponse findSummaryById(@Param("productId") Long productId);
+
+
+
+
 }

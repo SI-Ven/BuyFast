@@ -388,13 +388,14 @@ public class ProductServiceImpl implements ProductService {
     public void deleteProduct(UUID productUuid, UserDetails sellerDetails) {
         User seller = (User) sellerDetails;
         Product product = productRepo.findByUuidAndSellerId(productUuid, seller.getId())
-                .orElseThrow(() -> new IllegalStateException("Product not found"));
+                .orElseThrow(() -> new IllegalStateException("Product not found or permission denied."));
 
         productRepo.deleteByUuidAndSellerId(product.getProductUuid(), seller.getId());
+
         try {
-            productSearchRepo.deleteById(product.getId());
+            productSearchRepo.deleteById(String.valueOf(product.getId()));
         } catch (Exception e) {
-            log.error("Failed to delete from Elasticsearch: {}", e.getMessage());
+            log.error("Warning: Failed to delete product from Elasticsearch: {}", e.getMessage());
         }
     }
 
@@ -407,23 +408,22 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public List<ProductResponse> searchProducts(String keyword) {
-        // 1. Search in Elasticsearch to get IDs (Fast)
+        // 1. Get documents from Elasticsearch (Fast)
         List<ProductDocument> docs = productSearchRepo.findByProductNameContaining(keyword);
 
         if (docs.isEmpty()) {
             return Collections.emptyList();
         }
 
-        // 2. Extract only the IDs
-        List<Long> ids = docs.stream()
-                .map(ProductDocument::getId)
-                .collect(Collectors.toList());
+        // 2. FIX: Extract the productId (Long) instead of the document id (String)
+        // We use a Set to handle products with multiple matching images
+        Set<Long> productIds = docs.stream()
+                .map(ProductDocument::getProductId) // This is already Long
+                .collect(Collectors.toSet());
 
-        // 3. Fetch the "Whole Cart/Card" details from PostgreSQL (Clean)
-        // This uses your existing MyBatis query that joins images and ratings
-        return productRepo.findAllSummaryByIds(ids);
+        // 3. Fetch full "Card" details from PostgreSQL (Clean & Fast)
+        return productRepo.findAllSummaryByIds(new ArrayList<>(productIds));
     }
-
     @Override
     public List<ProductResponse> searchProductsByImage(MultipartFile image) {
         List<Double> searchVector = vectorEmbeddingService.getVectorFromFile(image);
@@ -441,15 +441,9 @@ public class ProductServiceImpl implements ProductService {
         List<ProductResponse> responses = new ArrayList<>();
         for (SearchHit<ProductDocument> hit : hits) {
             ProductDocument doc = hit.getContent();
-
-            // Logic: Your ProductDocument.id is now "productId_imageId"
-            String originalIdStr = doc.getId().split("_")[0];
-            Long productId = Long.parseLong(originalIdStr);
-
-            ProductResponse res = productRepo.findSummaryById(productId);
+            ProductResponse res = productRepo.findSummaryById(doc.getProductId());
             if (res != null) {
-                // UX FIX: Overwrite the main image with the specific one that matched the search!
-                res.setMainImage(doc.getImageUrl());
+                res.setMainImage(doc.getImageUrl()); // Swap to matched image
                 responses.add(res);
             }
         }
@@ -463,23 +457,18 @@ public class ProductServiceImpl implements ProductService {
     // --- HELPER TO SYNC DATA: Fixed to index EVERY product image ---
     private void saveToElasticsearch(Product product, Category category, BigDecimal minPrice) {
         try {
-            // 1. Delete old entries for this product (to prevent duplicates when updating)
-            // You should add deleteByProductId to your ProductSearchRepo
-            productSearchRepo.deleteByProductId(product.getId());
-
-            // 2. Fetch all images for this product
+            productSearchRepo.deleteByProductId(product.getId()); // Clean old image entries
             List<ProductImage> allImages = productImageRepo.findAllByProductId(product.getId());
 
             for (ProductImage img : allImages) {
                 ProductDocument doc = new ProductDocument();
-                // Composite ID: allows one product to have many searchable images
                 doc.setId(product.getId() + "_" + img.getId());
                 doc.setProductId(product.getId());
                 doc.setProductName(product.getProductName());
                 doc.setDescription(product.getDescription());
                 doc.setCategoryName(category.getCategoryName());
                 doc.setMinPrice(minPrice != null ? minPrice.doubleValue() : 0.0);
-                doc.setImageUrl(img.getImageUrl()); // Store specific image URL
+                doc.setImageUrl(img.getImageUrl());
 
                 List<Double> vector = vectorEmbeddingService.getVectorFromUrl(img.getImageUrl());
                 if (vector != null && !vector.isEmpty()) {
