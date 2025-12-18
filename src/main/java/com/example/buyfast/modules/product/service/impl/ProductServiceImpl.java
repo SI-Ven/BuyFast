@@ -229,8 +229,8 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public ProductResponse getMyProduct(UUID productUuid, UserDetails sellerDetails) {
-        User seller = (User) sellerDetails;
-        Product product = productRepo.findByUuidAndSellerId(productUuid, seller.getId())
+        // 1. Fetch the product without filtering by seller_id to allow public viewing
+        Product product = productRepo.findByUuid(productUuid)
                 .orElseThrow(() -> new IllegalStateException("Product not found"));
 
         List<ProductVariant> variants = productVariantRepo.findAllByProductId(product.getId());
@@ -273,14 +273,17 @@ public class ProductServiceImpl implements ProductService {
                     .build());
         }
 
+        // Retrieve category names for the response
+        Category category = categoryRepo.findById(product.getCategoryId()).orElse(null);
+
         return ProductResponse.builder()
                 .id(product.getId())
                 .productUuid(product.getProductUuid())
                 .productName(product.getProductName())
                 .description(product.getDescription())
-                .sellerId(seller.getEmail())
                 .minPrice(minPrice)
                 .maxPrice(maxPrice)
+                .categoryName(category != null ? category.getCategoryName() : null)
                 .availableOptions(optionsSummary)
                 .categoryId(product.getCategoryId())
                 .isActive(product.isActive())

@@ -58,11 +58,9 @@ public class ProductController {
     @Operation(summary = "Get a specific product details")
     public ResponseEntity<ApiResponse<ProductResponse>> getMyProduct(
             @PathVariable UUID productUuid,
-            @AuthenticationPrincipal UserDetails sellerDetails) {
+            @AuthenticationPrincipal UserDetails sellerDetails) { // sellerDetails can now be null
 
-        // Now calling the method that returns the full DTO
         ProductResponse response = productService.getMyProduct(productUuid, sellerDetails);
-
         return ResponseEntity.ok(ApiResponse.success("Product retrieved.", response));
     }
 
@@ -110,4 +108,6 @@ public class ProductController {
         List<Brand> brand = productService.findAllBrand();
         return ResponseEntity.ok(ApiResponse.success("find all brands successfully",brand));
     }
+
+
 }

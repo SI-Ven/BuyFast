@@ -128,7 +128,12 @@ public interface ProductRepo {
             "WHERE p.id = #{productId} " +
             "GROUP BY p.id, u.email, c.category_name, mc.main_category_name")
     ProductResponse findSummaryById(@Param("productId") Long productId);
-
+    @Select("SELECT p.*, c.category_name as categoryName, mc.main_category_name as mainCategoryName " +
+            "FROM product p " +
+            "LEFT JOIN category c ON p.category_id = c.id " +
+            "LEFT JOIN main_category mc ON c.main_category_id = mc.id " +
+            "WHERE p.product_uuid = #{productUuid}")
+    Optional<Product> findByUuidWithCategories(@Param("productUuid") java.util.UUID productUuid);
 
 
 }
