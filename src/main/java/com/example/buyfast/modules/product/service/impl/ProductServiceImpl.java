@@ -18,6 +18,7 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.StringQuery;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -408,20 +409,20 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public List<ProductResponse> searchProducts(String keyword) {
-        // 1. Get documents from Elasticsearch (Fast)
-        List<ProductDocument> docs = productSearchRepo.findByProductNameContaining(keyword);
+        // 1. Search Elasticsearch using the new Match query (Fixes 500 error)
+        List<ProductDocument> docs = productSearchRepo.searchByNameOrDescription(keyword);
 
         if (docs.isEmpty()) {
             return Collections.emptyList();
         }
 
-        // 2. FIX: Extract the productId (Long) instead of the document id (String)
-        // We use a Set to handle products with multiple matching images
+        // 2. Extract Product IDs (Long) instead of Document IDs (String)
+        // Fixes incompatible types: java.lang.Long cannot be converted to java.lang.String
         Set<Long> productIds = docs.stream()
-                .map(ProductDocument::getProductId) // This is already Long
+                .map(ProductDocument::getProductId) // Use the Long productId field
                 .collect(Collectors.toSet());
 
-        // 3. Fetch full "Card" details from PostgreSQL (Clean & Fast)
+        // 3. Fetch clean "Card" response from DB
         return productRepo.findAllSummaryByIds(new ArrayList<>(productIds));
     }
     @Override
@@ -433,21 +434,33 @@ public class ProductServiceImpl implements ProductService {
         String querySource = "{\"script_score\": {\"query\": {\"match_all\": {}}, \"script\": {\"source\": \"" + script + "\", \"params\": {\"query_vector\": " + searchVector + "}}}}";
 
         StringQuery query = new StringQuery(querySource);
-        query.setPageable(PageRequest.of(0, 10));
+        query.setPageable(PageRequest.of(0, 20)); // Fetch more to allow for unique filtering
 
         SearchHits<ProductDocument> hits = elasticsearchOperations.search(query, ProductDocument.class);
         if (hits.isEmpty()) return Collections.emptyList();
 
-        List<ProductResponse> responses = new ArrayList<>();
+        // --- FIX: Use LinkedHashMap to keep the order of relevance but group by Product ID ---
+        Map<Long, ProductResponse> uniqueBestMatches = new LinkedHashMap<>();
+
         for (SearchHit<ProductDocument> hit : hits) {
             ProductDocument doc = hit.getContent();
-            ProductResponse res = productRepo.findSummaryById(doc.getProductId());
-            if (res != null) {
-                res.setMainImage(doc.getImageUrl()); // Swap to matched image
-                responses.add(res);
+            Long productId = doc.getProductId();
+
+            // If this product isn't in our map yet, it's the "Best Match" for this specific product
+            if (!uniqueBestMatches.containsKey(productId)) {
+                ProductResponse res = productRepo.findSummaryById(productId);
+                if (res != null) {
+                    // Overwrite generic main image with the specific variant image that matched
+                    res.setMainImage(doc.getImageUrl());
+                    uniqueBestMatches.put(productId, res);
+                }
             }
+
+            // Stop once we have 10 unique product matches
+            if (uniqueBestMatches.size() >= 10) break;
         }
-        return responses;
+
+        return new ArrayList<>(uniqueBestMatches.values());
     }
     @Override
     public List<Brand> findAllBrand() {
@@ -455,13 +468,15 @@ public class ProductServiceImpl implements ProductService {
     }
 
     // --- HELPER TO SYNC DATA: Fixed to index EVERY product image ---
-    private void saveToElasticsearch(Product product, Category category, BigDecimal minPrice) {
+    @Async
+    protected void saveToElasticsearch(Product product, Category category, BigDecimal minPrice) {
         try {
             productSearchRepo.deleteByProductId(product.getId()); // Clean old image entries
             List<ProductImage> allImages = productImageRepo.findAllByProductId(product.getId());
 
             for (ProductImage img : allImages) {
                 ProductDocument doc = new ProductDocument();
+                // composite ID allows multiple images per product
                 doc.setId(product.getId() + "_" + img.getId());
                 doc.setProductId(product.getId());
                 doc.setProductName(product.getProductName());

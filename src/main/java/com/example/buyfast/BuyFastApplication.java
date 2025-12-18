@@ -9,6 +9,7 @@ import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableAsync;
 
 @SpringBootApplication
 @Configuration
@@ -37,6 +38,7 @@ import org.springframework.context.annotation.Configuration;
         "com.example.buyfast.modules.review.repository",
         "com.example.buyfast.modules.dispute.repository"
 })
+@EnableAsync // Add this line for quickly response for user while process in background
 public class BuyFastApplication {
 
     public static void main(String[] args) {
