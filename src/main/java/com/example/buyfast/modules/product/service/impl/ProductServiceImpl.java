@@ -13,6 +13,8 @@ import com.example.buyfast.modules.user.model.User;
 import com.example.buyfast.util.UuidService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
@@ -49,7 +51,14 @@ public class ProductServiceImpl implements ProductService {
     private final ProductSearchRepo productSearchRepo;
     private final VectorEmbeddingService vectorEmbeddingService;
     private final ElasticsearchOperations elasticsearchOperations;
+    // 1. Add self-injection to fix @Async internal call problem
+    private ProductServiceImpl self;
 
+    @Autowired
+    @Lazy
+    public void setSelf(ProductServiceImpl self) {
+        this.self = self;
+    }
     // =================================================================
     // HELPER: Calculate Sale Price
     // =================================================================
@@ -201,7 +210,7 @@ public class ProductServiceImpl implements ProductService {
         }
 
         // --- DYNAMIC SYNC: Index ALL images for better Visual Search UX ---
-        saveToElasticsearch(product, category, minPrice);
+        self.saveToElasticsearch(product, category, minPrice);
 
         return ProductResponse.builder()
                 .id(product.getId())
@@ -314,7 +323,7 @@ public class ProductServiceImpl implements ProductService {
                 .orElse(BigDecimal.ZERO);
 
         // SYNC UPDATED PRICE TO HOME PAGE INDEX
-        saveToElasticsearch(product, category, minPrice);
+        self.saveToElasticsearch(product, category, minPrice);
 
         return getMyProduct(productUuid, sellerDetails);
     }
@@ -468,15 +477,19 @@ public class ProductServiceImpl implements ProductService {
     }
 
     // --- HELPER TO SYNC DATA: Fixed to index EVERY product image ---
-    @Async
-    protected void saveToElasticsearch(Product product, Category category, BigDecimal minPrice) {
+    @Async("taskExecutor") // Matches the bean name in AsyncConfig
+    @Override // Ensure it's in the interface or public
+    public void saveToElasticsearch(Product product, Category category, BigDecimal minPrice) {
         try {
-            productSearchRepo.deleteByProductId(product.getId()); // Clean old image entries
+            log.info("🚀 Background indexing started for Product ID: {}", product.getId());
+
+            // Delete old entries to prevent duplicates
+            productSearchRepo.deleteByProductId(product.getId());
+
             List<ProductImage> allImages = productImageRepo.findAllByProductId(product.getId());
 
             for (ProductImage img : allImages) {
                 ProductDocument doc = new ProductDocument();
-                // composite ID allows multiple images per product
                 doc.setId(product.getId() + "_" + img.getId());
                 doc.setProductId(product.getId());
                 doc.setProductName(product.getProductName());
@@ -485,14 +498,17 @@ public class ProductServiceImpl implements ProductService {
                 doc.setMinPrice(minPrice != null ? minPrice.doubleValue() : 0.0);
                 doc.setImageUrl(img.getImageUrl());
 
+                // THE SLOW PART: Now happens in the background
                 List<Double> vector = vectorEmbeddingService.getVectorFromUrl(img.getImageUrl());
+
                 if (vector != null && !vector.isEmpty()) {
                     doc.setImageVector(vector);
                     productSearchRepo.save(doc);
                 }
             }
+            log.info("✅ Background indexing finished for Product ID: {}", product.getId());
         } catch (Exception e) {
-            log.error("Error syncing to Elasticsearch: ", e);
+            log.error("❌ Background Sync Error for Product {}: ", product.getId(), e);
         }
     }
 }
