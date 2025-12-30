@@ -33,6 +33,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void configureMessageBroker(MessageBrokerRegistry config) {
         config.enableSimpleBroker("/topic", "/queue");
         config.setApplicationDestinationPrefixes("/app");
+        // This is the prefix used for private messages (e.g., /user/queue/messages)
         config.setUserDestinationPrefix("/user");
     }
 
@@ -55,16 +56,16 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
                     if (authHeader != null && authHeader.startsWith("Bearer ")) {
                         String token = authHeader.substring(7);
-                        // Normalize email to lowercase
-                        String username = jwtService.extractUsername(token).toLowerCase().trim();
+                        // Force email to lowercase for consistent session mapping
+                        String userEmail = jwtService.extractUsername(token).toLowerCase().trim();
 
-                        if (username != null) {
-                            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                        if (userEmail != null) {
+                            UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
                             if (jwtService.isTokenValid(token, userDetails)) {
-                                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                                        userDetails, null, userDetails.getAuthorities());
+                                UsernamePasswordAuthenticationToken auth =
+                                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
 
-                                // Set both the accessor user AND the security context
+                                // CRITICAL: This names the session so convertAndSendToUser can find the buyer
                                 accessor.setUser(auth);
                                 SecurityContextHolder.getContext().setAuthentication(auth);
                             }
