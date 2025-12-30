@@ -38,7 +38,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws").setAllowedOriginPatterns("*").withSockJS();
+        registry.addEndpoint("/ws")
+                .setAllowedOriginPatterns("*")
+                .withSockJS();
     }
 
     @Override
@@ -48,17 +50,23 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
             public Message<?> preSend(Message<?> message, MessageChannel channel) {
                 StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
-                if (StompCommand.CONNECT.equals(accessor.getCommand())) {
+                if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
                     String authHeader = accessor.getFirstNativeHeader("Authorization");
+
                     if (authHeader != null && authHeader.startsWith("Bearer ")) {
                         String token = authHeader.substring(7);
-                        String username = jwtService.extractUsername(token);
+                        // Normalize email to lowercase
+                        String username = jwtService.extractUsername(token).toLowerCase().trim();
+
                         if (username != null) {
                             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
                             if (jwtService.isTokenValid(token, userDetails)) {
                                 UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                                         userDetails, null, userDetails.getAuthorities());
-                                accessor.setUser(auth); // Identify the user for this session
+
+                                // Set both the accessor user AND the security context
+                                accessor.setUser(auth);
+                                SecurityContextHolder.getContext().setAuthentication(auth);
                             }
                         }
                     }
