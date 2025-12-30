@@ -9,6 +9,8 @@ import org.springframework.stereotype.Controller;
 import java.time.LocalDateTime;
 import java.security.Principal;
 
+// ... existing imports
+
 @Controller
 @RequiredArgsConstructor
 public class ChatController {
@@ -19,7 +21,7 @@ public class ChatController {
     public void sendPrivateMessage(@Payload ChatMessage chatMessage, Principal principal) {
         if (principal == null) return;
 
-        // CRITICAL: Normalize every email to lowercase and trim
+        // principal.getName() now returns "resellkh@gmail.com" (buyer) or "povmeaa12@gmail.com" (seller)
         String senderEmail = principal.getName().toLowerCase().trim();
         String recipientEmail = chatMessage.getRecipientId().toLowerCase().trim();
 
@@ -27,14 +29,15 @@ public class ChatController {
         chatMessage.setRecipientId(recipientEmail);
         chatMessage.setTimestamp(LocalDateTime.now());
 
-        // Send to recipient
+        // This sends to the recipient's personal queue
+        // If recipient is 'resellkh@gmail.com', it sends to /user/resellkh@gmail.com/queue/messages
         messagingTemplate.convertAndSendToUser(
                 recipientEmail,
                 "/queue/messages",
                 chatMessage
         );
 
-        // Send to sender (echo)
+        // Echo to the sender so they see their own message in the UI
         messagingTemplate.convertAndSendToUser(
                 senderEmail,
                 "/queue/messages",
