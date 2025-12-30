@@ -1,18 +1,24 @@
 package com.example.buyfast.modules.chat.model;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@Builder
 public class ChatMessage {
-    private String senderId;      // Email of the buyer
-    private String recipientId;   // Email of the seller
-    private String productId;     // Product Context
-    private String content;       // Message Text
-    private String timestamp;
+    private String id;
+    private String senderId;
+    private String recipientId;
+    private String content;
+    private String imageUrl; // ADD THIS LINE
+    private String productId;
+    private LocalDateTime timestamp;
     private MessageType type;
 }
 

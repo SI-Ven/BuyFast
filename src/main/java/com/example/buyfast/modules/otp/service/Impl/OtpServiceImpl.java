@@ -81,11 +81,6 @@ public class OtpServiceImpl implements OtpService {
 
         System.out.println("RESULT: OTP Valid");
 
-        // --- FIXED: DO NOT DELETE OTP HERE ---
-        // This allows the OTP to be verified multiple times (e.g. by UI check then by Submit)
-        // It will be cleaned up automatically when a new one is requested (ON CONFLICT UPDATE)
-        // or when it expires.
-        // otpRepo.deleteByEmail(normalizedEmail);
 
         return true;
     }

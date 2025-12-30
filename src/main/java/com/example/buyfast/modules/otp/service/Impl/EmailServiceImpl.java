@@ -1,4 +1,4 @@
-package com.example.buyfast.modules.otp.service.impl; // <-- New package
+package com.example.buyfast.modules.otp.service.Impl;
 
 import com.example.buyfast.modules.otp.service.EmailService; // <-- Import interface
 import lombok.RequiredArgsConstructor;
@@ -8,11 +8,11 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-public class EmailServiceImpl implements EmailService { // <-- Implements interface
+public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
 
-    @Override // <-- Add annotation
+    @Override // on
     public void sendSimpleMessage(String to, String subject, String text) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom("noreply@buyfast.com");

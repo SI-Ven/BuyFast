@@ -18,38 +18,40 @@ public class ChatController {
 
     @MessageMapping("/chat.sendPrivateMessage")
     public void sendPrivateMessage(@Payload ChatMessage chatMessage, Principal principal) {
-        // --- 1. DEBUG LOGS (Add these to see what is happening) ---
-        System.out.println(">>> HIT CONTROLLER: sendPrivateMessage");
-
+        // 1. Validation & Security
         if (principal == null) {
-            System.out.println("ERROR: Principal is NULL. User not authenticated in WebSocket.");
+            System.out.println("ERROR: Unauthorized WebSocket Attempt.");
             return;
         }
 
-        System.out.println("1. Sender (Principal): " + principal.getName());
-        System.out.println("2. Raw Recipient ID: " + chatMessage.getRecipientId());
+        // 2. Set official server-side metadata
+        // Ensure senderId is actually the authenticated user to prevent spoofing
+        chatMessage.setSenderId(principal.getName());
+        chatMessage.setTimestamp(LocalDateTime.now());
 
-        // --- 2. LOGIC ---
-        String cleanRecipient = chatMessage.getRecipientId().toLowerCase().trim();
-        chatMessage.setRecipientId(cleanRecipient);
-        chatMessage.setTimestamp(LocalDateTime.now().toString());
+        // Clean up recipient ID
+        if (chatMessage.getRecipientId() != null) {
+            chatMessage.setRecipientId(chatMessage.getRecipientId().toLowerCase().trim());
+        }
 
-        System.out.println("3. Sending to Clean Recipient: " + cleanRecipient);
+        // Debug Log to see if imageUrl is coming through
+        System.out.println("Message from: " + chatMessage.getSenderId());
+        System.out.println("Content: " + chatMessage.getContent());
+        System.out.println("Image URL: " + chatMessage.getImageUrl());
 
-        // --- 3. SENDING ---
-        // Send to Recipient
+        // 3. Dispatch to Recipient
+        // This sends to the destination: /user/{recipientId}/queue/messages
         messagingTemplate.convertAndSendToUser(
                 chatMessage.getRecipientId(),
                 "/queue/messages",
                 chatMessage
         );
 
-        // Echo back to Sender
+        // 4. Echo back to Sender (so their UI updates instantly)
         messagingTemplate.convertAndSendToUser(
                 chatMessage.getSenderId(),
                 "/queue/messages",
                 chatMessage
         );
-        System.out.println(">>> MESSAGES SENT");
     }
 }

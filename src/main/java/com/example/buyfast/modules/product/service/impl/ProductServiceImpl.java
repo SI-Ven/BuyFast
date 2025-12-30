@@ -450,22 +450,48 @@ public class ProductServiceImpl implements ProductService {
     }
 
     // In ProductServiceImpl.java - getAllProductsForHome
+// src/main/java/com/example/buyfast/modules/product/service/impl/ProductServiceImpl.java
+
     @Override
     public List<ProductResponse> getAllProductsForHome(int page, int size) {
         int offset = (page - 1) * size;
+        // 1. Get the summary list (fast query)
         List<ProductResponse> products = productRepo.findAllActiveProductsSummary(size, offset);
 
-        // Manual Fix: Populate first variant for each product so the carousel doesn't crash
+        // 2. Populate Prices and Variants for the "Card" display
         for (ProductResponse p : products) {
             List<ProductVariant> variants = productVariantRepo.findAllByProductId(p.getId());
-            if (!variants.isEmpty()) {
-                p.setVariants(variants.stream().map(v ->
-                        ProductResponse.VariantResponse.builder()
-                                .price(v.getPrice())
-                                .discountPercentage(v.getDiscountPercentage())
-                                .stockQuantity(v.getStockQuantity())
-                                .build()
-                ).collect(Collectors.toList()));
+
+            BigDecimal min = null;
+            BigDecimal max = null;
+            List<ProductResponse.VariantResponse> variantList = new ArrayList<>();
+
+            for (ProductVariant v : variants) {
+                // Use calculateSalePrice to handle discounts
+                BigDecimal salePrice = calculateSalePrice(v.getPrice(), v.getDiscountPercentage());
+
+                if (min == null || salePrice.compareTo(min) < 0) min = salePrice;
+                if (max == null || salePrice.compareTo(max) > 0) max = salePrice;
+
+//                variantList.add(ProductResponse.VariantResponse.builder()
+//                        .variantUuid(v.getVariantUuid())
+//                        .price(v.getPrice())
+//                        .discountPercentage(v.getDiscountPercentage())
+//                        .salePrice(salePrice)
+//                        .stockQuantity(v.getStockQuantity())
+//                        .build());
+            }
+
+//            // Standardize values to avoid NULL on frontend
+//            p.setVariants(variantList);
+            p.setMinPrice(min != null ? min : BigDecimal.ZERO);
+            p.setMaxPrice(max != null ? max : BigDecimal.ZERO);
+            p.setAverageRating(0.0); // Default for card display
+            p.setTotalReviews(0);
+
+            // If main image is missing, try to take it from a variant
+            if (p.getMainImage() == null || p.getMainImage().isEmpty()) {
+                p.setMainImage(""); // Keep it empty string instead of null
             }
         }
         return products;
