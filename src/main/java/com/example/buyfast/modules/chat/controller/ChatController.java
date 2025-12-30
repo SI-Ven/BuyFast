@@ -20,7 +20,7 @@ public class ChatController {
     public void sendPrivateMessage(@Payload ChatMessage chatMessage, Principal principal) {
         if (principal == null) return;
 
-        // 1. Force lowercase and trim to prevent "User@gmail.com" vs "user@gmail.com" bugs
+        // Normalize both emails to lowercase and trim spaces
         String senderEmail = principal.getName().toLowerCase().trim();
         String recipientEmail = chatMessage.getRecipientId().toLowerCase().trim();
 
@@ -28,19 +28,10 @@ public class ChatController {
         chatMessage.setRecipientId(recipientEmail);
         chatMessage.setTimestamp(LocalDateTime.now());
 
-        // 2. Send to Recipient (The Buyer or Seller on the other end)
-        // Spring looks for a session where Principal.getName() == recipientEmail
-        messagingTemplate.convertAndSendToUser(
-                recipientEmail,
-                "/queue/messages",
-                chatMessage
-        );
+        // Send to recipient
+        messagingTemplate.convertAndSendToUser(recipientEmail, "/queue/messages", chatMessage);
 
-        // 3. Send to Sender (Optional: syncs message across sender's open tabs)
-        messagingTemplate.convertAndSendToUser(
-                senderEmail,
-                "/queue/messages",
-                chatMessage
-        );
+        // Send to sender (to sync multiple tabs and confirm delivery)
+        messagingTemplate.convertAndSendToUser(senderEmail, "/queue/messages", chatMessage);
     }
 }
