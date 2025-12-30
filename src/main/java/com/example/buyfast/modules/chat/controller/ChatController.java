@@ -18,38 +18,27 @@ public class ChatController {
 
     @MessageMapping("/chat.sendPrivateMessage")
     public void sendPrivateMessage(@Payload ChatMessage chatMessage, Principal principal) {
-        // 1. Validation & Security
-        if (principal == null) {
-            System.out.println("ERROR: Unauthorized WebSocket Attempt.");
-            return;
-        }
+        if (principal == null) return;
 
-        // 2. Set official server-side metadata
-        // Ensure senderId is actually the authenticated user to prevent spoofing
-        chatMessage.setSenderId(principal.getName());
+        // 1. Force lowercase and trim to prevent "User@gmail.com" vs "user@gmail.com" bugs
+        String senderEmail = principal.getName().toLowerCase().trim();
+        String recipientEmail = chatMessage.getRecipientId().toLowerCase().trim();
+
+        chatMessage.setSenderId(senderEmail);
+        chatMessage.setRecipientId(recipientEmail);
         chatMessage.setTimestamp(LocalDateTime.now());
 
-        // Clean up recipient ID
-        if (chatMessage.getRecipientId() != null) {
-            chatMessage.setRecipientId(chatMessage.getRecipientId().toLowerCase().trim());
-        }
-
-        // Debug Log to see if imageUrl is coming through
-        System.out.println("Message from: " + chatMessage.getSenderId());
-        System.out.println("Content: " + chatMessage.getContent());
-        System.out.println("Image URL: " + chatMessage.getImageUrl());
-
-        // 3. Dispatch to Recipient
-        // This sends to the destination: /user/{recipientId}/queue/messages
+        // 2. Send to Recipient (The Buyer or Seller on the other end)
+        // Spring looks for a session where Principal.getName() == recipientEmail
         messagingTemplate.convertAndSendToUser(
-                chatMessage.getRecipientId(),
+                recipientEmail,
                 "/queue/messages",
                 chatMessage
         );
 
-        // 4. Echo back to Sender (so their UI updates instantly)
+        // 3. Send to Sender (Optional: syncs message across sender's open tabs)
         messagingTemplate.convertAndSendToUser(
-                chatMessage.getSenderId(),
+                senderEmail,
                 "/queue/messages",
                 chatMessage
         );

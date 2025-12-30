@@ -24,26 +24,24 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @Configuration
 @EnableWebSocketMessageBroker
 @RequiredArgsConstructor
-@Slf4j
-@Order(Ordered.HIGHEST_PRECEDENCE + 99)
+@Order(Ordered.HIGHEST_PRECEDENCE + 99) // Ensure this runs before other security filters
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
 
     @Override
-    public void registerStompEndpoints(StompEndpointRegistry registry) {
-        // Allows the initial HTTP handshake
-        registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("*")
-                .withSockJS();
+    public void configureMessageBroker(MessageBrokerRegistry config) {
+        config.enableSimpleBroker("/topic", "/queue");
+        config.setApplicationDestinationPrefixes("/app");
+        config.setUserDestinationPrefix("/user"); // Crucial for convertAndSendToUser
     }
 
     @Override
-    public void configureMessageBroker(MessageBrokerRegistry registry) {
-        registry.setApplicationDestinationPrefixes("/app");
-        registry.enableSimpleBroker("/topic", "/queue");
-        registry.setUserDestinationPrefix("/user");
+    public void registerStompEndpoints(StompEndpointRegistry registry) {
+        registry.addEndpoint("/ws")
+                .setAllowedOriginPatterns("*")
+                .withSockJS();
     }
 
     @Override
@@ -55,17 +53,19 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
                 if (StompCommand.CONNECT.equals(accessor.getCommand())) {
                     String authHeader = accessor.getFirstNativeHeader("Authorization");
+
                     if (authHeader != null && authHeader.startsWith("Bearer ")) {
                         String token = authHeader.substring(7);
                         String username = jwtService.extractUsername(token);
-                        if (username != null) {
+
+                        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
                             if (jwtService.isTokenValid(token, userDetails)) {
-                                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                                        userDetails, null, userDetails.getAuthorities()
-                                );
-                                accessor.setUser(authToken); // Principal = Email
-                                SecurityContextHolder.getContext().setAuthentication(authToken);
+                                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                                        userDetails, null, userDetails.getAuthorities());
+
+                                // Set the User for the WebSocket session
+                                accessor.setUser(auth);
                             }
                         }
                     }
